@@ -1,4 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" width="100%" height="100%" role="img" aria-label="An alpaca pedaling a bicycle">
+  <title>An alpaca pedaling a bicycle</title>
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0%" stop-color="#dff4ff"/>
@@ -55,5 +56,8 @@
   <ellipse cx="242" cy="224" rx="9" ry="6" fill="#5f4a3d"/>
   <ellipse cx="284" cy="224" rx="9" ry="6" fill="#5f4a3d"/>
   <path d="M178 80Q206 66 236 80" class="line" style="stroke:#d8d2c7;stroke-width:7" filter="url(#soft)"/>
-  <text x="12" y="24" font-family="Verdana, sans-serif" font-size="10" fill="#2f2f2f">Prompt: "Generate an SVG of an Alpaca riding a bicycle. Include distinctive large neck, alpaca fur, and active pedaling."</text>
+  <text x="12" y="20" font-family="Verdana, sans-serif" font-size="11" fill="#2f2f2f">
+    <tspan x="12" dy="0">Prompt: "Generate an SVG of an alpaca riding a bicycle.</tspan>
+    <tspan x="12" dy="13">Include distinctive large neck, alpaca fur, and active pedaling."</tspan>
+  </text>
 </svg>
