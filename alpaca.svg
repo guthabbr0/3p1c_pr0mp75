@@ -24,7 +24,6 @@
       .fur{fill:url(#fleece);stroke:#33251d;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
       .cream{fill:#fff4dc}.tan{fill:#d4a875}.dark{fill:#33251d}.hoof{fill:#4a3024}
       .motion{fill:none;stroke:#63a9d6;stroke-width:3;stroke-linecap:round;opacity:.75}
-      .prompt{font-family:Verdana,Arial,sans-serif;font-size:8.5px;fill:#243748}
       .bikeBlueFill{fill:var(--bike-blue)}
       .crankLine{stroke:var(--bike-blue);stroke-width:4;stroke-linecap:round}
       .crankCircle{fill:none;stroke:var(--bike-blue);stroke-width:3}
@@ -126,9 +125,4 @@
   </g>
 
   <path d="M19 258 C42 252 56 252 84 258 M276 260 C305 252 331 252 370 260" fill="none" stroke="#4d8f50" stroke-width="4" stroke-linecap="round" opacity=".55"/>
-  <text x="14" y="16" class="prompt">
-    <tspan x="14" dy="0">Prompt: Generate an SVG of an alpaca riding a bicycle.</tspan>
-    <tspan x="14" dy="10">Include the alpaca's distinctive large neck/alpaca features and fur, show the alpaca actively pedaling a bicycle,</tspan>
-    <tspan x="14" dy="10">use a reasonable viewBox around 400x300, and make it recognizable as an alpaca.</tspan>
-  </text>
 </svg>
