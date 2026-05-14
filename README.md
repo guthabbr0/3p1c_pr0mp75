@@ -2,4 +2,4 @@
 
 ![An alpaca actively pedaling a bicycle](./alpaca.svg)
 
-Prompt: "Generate an SVG of an Alpaca riding a bicycle. Include the Alpaca's distinctive large neck/Alpaca features and fur, show the Alpaca actively pedaling a bicycle, use a reasonable viewBox around 400x300, and make it recognizable as an Alpaca."
+Prompt: "Generate an SVG of an alpaca riding a bicycle. Include the alpaca's distinctive large neck/alpaca features and fur, show the alpaca actively pedaling a bicycle, use a reasonable viewBox around 400x300, and make it recognizable as an alpaca."
