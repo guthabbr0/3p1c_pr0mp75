@@ -29,7 +29,9 @@
       .crankLine{stroke:var(--bike-blue);stroke-width:4;stroke-linecap:round}
       .crankCircle{fill:none;stroke:var(--bike-blue);stroke-width:3}
       @media (prefers-reduced-motion:no-preference){
-        .wheel{transform-box:fill-box;transform-origin:center;animation:spin var(--pedal-duration) linear infinite}
+        .wheel{animation:spin var(--pedal-duration) linear infinite}
+        .rearWheel{transform-origin:105px 222px}
+        .frontWheel{transform-origin:292px 222px}
         .crank{transform-box:fill-box;transform-origin:200px 212px;animation:spin var(--pedal-duration) linear infinite}
         .bob{animation:bob var(--bob-duration) ease-in-out infinite alternate}
         .scarf{animation:flap var(--flap-duration) ease-in-out infinite alternate}
@@ -41,18 +43,24 @@
   </defs>
 
   <rect width="400" height="300" fill="url(#sky)"/>
-  <circle cx="333" cy="48" r="22" fill="#ffe48d" opacity=".9" aria-label="sun"/>
-  <path d="M0 244 C50 232 88 250 137 240 S226 229 285 241 361 250 400 238 L400 300 L0 300 Z" fill="#93d47b" aria-label="rolling grassy ground"/>
+  <g role="img" aria-label="sun">
+    <title>Sun</title>
+    <circle cx="333" cy="48" r="22" fill="#ffe48d" opacity=".9"/>
+  </g>
+  <g role="img" aria-label="rolling grassy ground">
+    <title>Rolling grassy ground</title>
+    <path d="M0 244 C50 232 88 250 137 240 S226 229 285 241 361 250 400 238 L400 300 L0 300 Z" fill="#93d47b"/>
+  </g>
   <path d="M38 76h42M300 88h58M318 68h37" class="motion"/>
   <path d="M39 215h45M308 216h54M322 235h33" class="motion"/>
 
   <g filter="url(#shadow)">
-    <g class="wheel">
+    <g class="wheel rearWheel">
       <circle cx="105" cy="222" r="50" class="bike"/>
       <circle cx="105" cy="222" r="42" class="bikeThin"/>
       <path d="M105 172v100M55 222h100M70 187l70 70M140 187l-70 70" class="bikeThin"/>
     </g>
-    <g class="wheel">
+    <g class="wheel frontWheel">
       <circle cx="292" cy="222" r="50" class="bike"/>
       <circle cx="292" cy="222" r="42" class="bikeThin"/>
       <path d="M292 172v100M242 222h100M257 187l70 70M327 187l-70 70" class="bikeThin"/>

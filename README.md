@@ -1,4 +1,4 @@
-# Alpaca Riding a Bicycle
+# Alpaca riding a bicycle
 
 ![An alpaca actively pedaling a bicycle](./alpaca.svg)
 
