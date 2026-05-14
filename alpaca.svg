@@ -3,14 +3,14 @@
   <desc id="desc">Prompt: Generate an SVG of an Alpaca riding a bicycle. Include the Alpaca's distinctive large neck/Alpaca features and fur, and show the Alpaca actively pedaling a bicycle.</desc>
   <defs>
     <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#bfe9ff"/>
-      <stop offset="0.62" stop-color="#f7fbff"/>
-      <stop offset="1" stop-color="#dff7cf"/>
+      <stop offset="0%" stop-color="#bfe9ff"/>
+      <stop offset="62%" stop-color="#f7fbff"/>
+      <stop offset="100%" stop-color="#dff7cf"/>
     </linearGradient>
     <radialGradient id="fleece" cx="45%" cy="35%" r="75%">
-      <stop offset="0" stop-color="#fff9ec"/>
-      <stop offset="0.7" stop-color="#eadcc7"/>
-      <stop offset="1" stop-color="#d9c4a7"/>
+      <stop offset="0%" stop-color="#fff9ec"/>
+      <stop offset="70%" stop-color="#eadcc7"/>
+      <stop offset="100%" stop-color="#d9c4a7"/>
     </radialGradient>
     <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
       <feDropShadow dx="0" dy="3" stdDeviation="2" flood-color="#5d4936" flood-opacity="0.25"/>
@@ -109,5 +109,5 @@
   </g>
 
   <path d="M19 258 C42 252 56 252 84 258 M276 260 C305 252 331 252 370 260" fill="none" stroke="#4d8f50" stroke-width="4" stroke-linecap="round" opacity=".55"/>
-  <text x="14" y="16" class="prompt">Prompt: Generate an SVG of an Alpaca riding a bicycle, with distinctive long neck, alpaca fur, and active pedaling.</text>
+  <text x="14" y="16" class="prompt">Prompt: Generate an SVG of an alpaca riding a bicycle, with distinctive long neck, alpaca fur, and active pedaling.</text>
 </svg>
