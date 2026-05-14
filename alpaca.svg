@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" role="img" aria-labelledby="title desc">
   <title id="title">Alpaca actively pedaling a bicycle</title>
-  <desc id="desc">Prompt: Generate an SVG of an alpaca riding a bicycle. Include the alpaca's distinctive large neck/alpaca features and fur, show the alpaca actively pedaling a bicycle, use a reasonable viewBox around 400x300, and make it recognizable as an alpaca.</desc>
+  <desc id="desc">A fluffy long-necked alpaca with tall ears and hooves rides a bicycle, with spinning wheels, moving pedals, bent legs, a fluttering scarf, and motion lines showing active pedaling.</desc>
   <defs>
     <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0%" stop-color="#bfe9ff"/>
@@ -91,7 +91,6 @@
 
   <g>
     <path d="M139 174 C132 190 133 204 151 214 L176 229" class="outline" fill="none"/>
-    <path d="M151 214 L176 229" class="outline" fill="none"/>
     <ellipse cx="181" cy="231" rx="12" ry="6" class="hoof" transform="rotate(18 181 231)"/>
     <path d="M184 177 C197 190 205 201 200 212 L184 237" class="outline" fill="none"/>
     <ellipse cx="181" cy="241" rx="12" ry="6" class="hoof" transform="rotate(-24 181 241)"/>
