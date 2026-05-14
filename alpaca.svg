@@ -16,7 +16,7 @@
       <feDropShadow dx="0" dy="3" stdDeviation="2" flood-color="#5d4936" flood-opacity="0.25"/>
     </filter>
     <style>
-      :root{--pedal-duration:.7s;--bike-blue:#173c62}
+      :root{--pedal-duration:.7s;--bob-duration:.7s;--flap-duration:.45s;--bike-blue:#173c62}
       .outline{stroke:#33251d;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
       .softOutline{stroke:#33251d;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
       .bike{fill:none;stroke:var(--bike-blue);stroke-width:4;stroke-linecap:round;stroke-linejoin:round}
@@ -31,8 +31,8 @@
       @media (prefers-reduced-motion:no-preference){
         .wheel{transform-box:fill-box;transform-origin:center;animation:spin var(--pedal-duration) linear infinite}
         .crank{transform-box:fill-box;transform-origin:200px 212px;animation:spin var(--pedal-duration) linear infinite}
-        .bob{animation:bob .7s ease-in-out infinite alternate}
-        .scarf{animation:flap .45s ease-in-out infinite alternate}
+        .bob{animation:bob var(--bob-duration) ease-in-out infinite alternate}
+        .scarf{animation:flap var(--flap-duration) ease-in-out infinite alternate}
       }
       @keyframes spin{to{transform:rotate(360deg)}}
       @keyframes bob{to{transform:translateY(-3px)}}
