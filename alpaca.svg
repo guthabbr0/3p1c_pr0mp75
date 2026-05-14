@@ -41,8 +41,8 @@
   </defs>
 
   <rect width="400" height="300" fill="url(#sky)"/>
-  <circle cx="333" cy="48" r="22" fill="#ffe48d" opacity=".9"/>
-  <path d="M0 244 C50 232 88 250 137 240 S226 229 285 241 361 250 400 238 L400 300 L0 300 Z" fill="#93d47b"/>
+  <circle cx="333" cy="48" r="22" fill="#ffe48d" opacity=".9" aria-label="sun"/>
+  <path d="M0 244 C50 232 88 250 137 240 S226 229 285 241 361 250 400 238 L400 300 L0 300 Z" fill="#93d47b" aria-label="rolling grassy ground"/>
   <path d="M38 76h42M300 88h58M318 68h37" class="motion"/>
   <path d="M39 215h45M308 216h54M322 235h33" class="motion"/>
 
@@ -69,7 +69,8 @@
     </g>
   </g>
 
-  <g class="bob">
+  <g class="bob" aria-label="long-necked fluffy alpaca body and head">
+    <title>Long-necked fluffy alpaca</title>
     <path d="M170 155 C150 128 150 95 165 70 C175 52 198 54 203 76 C209 103 194 129 199 157 Z" class="fur"/>
     <path d="M203 79 C213 63 233 59 250 70 C266 80 269 99 257 112 C242 128 211 119 202 101 Z" class="fur"/>
     <path d="M218 69 L209 39 L231 62" class="fur"/>
@@ -96,7 +97,8 @@
     <path d="M164 98 C176 105 191 105 202 96" fill="none" stroke="#e94b5f" stroke-width="10" stroke-linecap="round"/>
   </g>
 
-  <g>
+  <g aria-label="alpaca legs pushing bicycle pedals">
+    <title>Alpaca legs pushing the pedals</title>
     <path d="M139 174 C132 190 133 204 151 214 L176 229" class="outline" fill="none"/>
     <ellipse cx="181" cy="231" rx="12" ry="6" class="hoof" transform="rotate(18 181 231)"/>
     <path d="M184 177 C197 190 205 201 200 212 L184 237" class="outline" fill="none"/>
@@ -107,7 +109,8 @@
     <ellipse cx="246" cy="243" rx="12" ry="6" class="hoof" transform="rotate(-10 246 243)"/>
   </g>
 
-  <g class="crank">
+  <g class="crank" aria-label="spinning bicycle crank and pedals">
+    <title>Spinning bicycle crank and pedals</title>
     <circle cx="200" cy="212" r="12" class="crankCircle"/>
     <path d="M200 212 L177 229 M200 212 L222 195" class="crankLine"/>
     <rect x="166" y="225" width="23" height="7" rx="3.5" class="bikeBlueFill" transform="rotate(18 177 229)"/>
