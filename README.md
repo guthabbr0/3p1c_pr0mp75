@@ -1,2 +1,5 @@
+# Alpaca riding a bicycle
 
-![alt text](https://github.com/guthabbr0/3p1c_pr0mp75/blob/main/alpaca.svg)
+![An alpaca actively pedaling a bicycle](./alpaca.svg)
+
+Prompt: "Generate an SVG of an alpaca riding a bicycle. Include the alpaca's distinctive large neck/alpaca features and fur, show the alpaca actively pedaling a bicycle, use a reasonable viewBox around 400x300, and make it recognizable as an alpaca."

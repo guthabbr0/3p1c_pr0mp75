@@ -1,63 +1,128 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" width="100%" height="100%" role="img" aria-label="An alpaca pedaling a bicycle">
-  <title>An alpaca pedaling a bicycle</title>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" width="400" height="300" role="img" aria-labelledby="title desc">
+  <title id="title">Alpaca actively pedaling a bicycle</title>
+  <desc id="desc">A fluffy long-necked alpaca with tall ears and hooves rides a bicycle, with spinning wheels, moving pedals, bent legs, a fluttering scarf, and motion lines showing active pedaling.</desc>
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#dff4ff"/>
-      <stop offset="100%" stop-color="#f6fbff"/>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#bfe9ff"/>
+      <stop offset="62%" stop-color="#f7fbff"/>
+      <stop offset="100%" stop-color="#dff7cf"/>
     </linearGradient>
-    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
-      <feGaussianBlur stdDeviation="0.8"/>
+    <radialGradient id="fleece" cx="45%" cy="35%" r="75%">
+      <stop offset="0%" stop-color="#fff9ec"/>
+      <stop offset="70%" stop-color="#eadcc7"/>
+      <stop offset="100%" stop-color="#d9c4a7"/>
+    </radialGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="3" stdDeviation="2" flood-color="#5d4936" flood-opacity="0.25"/>
     </filter>
     <style>
-      .line{stroke:#2f2f2f;stroke-width:3;fill:none;stroke-linecap:round;stroke-linejoin:round}
-      .fur{fill:#f4efe6;stroke:#2f2f2f;stroke-width:2.5}
-      .bike{stroke:#2e4a66;stroke-width:3;fill:none;stroke-linecap:round;stroke-linejoin:round}
+      :root{--pedal-duration:.7s;--bob-duration:.7s;--flap-duration:.45s;--bike-blue:#173c62}
+      .outline{stroke:#33251d;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+      .softOutline{stroke:#33251d;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+      .bike{fill:none;stroke:var(--bike-blue);stroke-width:4;stroke-linecap:round;stroke-linejoin:round}
+      .bikeThin{fill:none;stroke:#4d6d8b;stroke-width:1.4;stroke-linecap:round}
+      .fur{fill:url(#fleece);stroke:#33251d;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
+      .cream{fill:#fff4dc}.tan{fill:#d4a875}.dark{fill:#33251d}.hoof{fill:#4a3024}
+      .motion{fill:none;stroke:#63a9d6;stroke-width:3;stroke-linecap:round;opacity:.75}
+      .bikeBlueFill{fill:var(--bike-blue)}
+      .crankLine{stroke:var(--bike-blue);stroke-width:4;stroke-linecap:round}
+      .crankCircle{fill:none;stroke:var(--bike-blue);stroke-width:3}
+      @media (prefers-reduced-motion:no-preference){
+        .wheel{animation:spin var(--pedal-duration) linear infinite}
+        .rearWheel{transform-origin:105px 222px}
+        .frontWheel{transform-origin:292px 222px}
+        .crank{transform-box:fill-box;transform-origin:200px 212px;animation:spin var(--pedal-duration) linear infinite}
+        .bob{animation:bob var(--bob-duration) ease-in-out infinite alternate}
+        .scarf{animation:flap var(--flap-duration) ease-in-out infinite alternate}
+      }
+      @keyframes spin{to{transform:rotate(360deg)}}
+      @keyframes bob{to{transform:translateY(-3px)}}
+      @keyframes flap{to{transform:translateX(-5px) rotate(-3deg)}}
     </style>
   </defs>
-  <rect x="0" y="0" width="400" height="300" fill="url(#bg)"/>
-  <rect x="0" y="235" width="400" height="65" fill="#b5dfa1"/>
-  <circle cx="118" cy="224" r="54" class="bike"/>
-  <circle cx="282" cy="224" r="54" class="bike"/>
-  <circle cx="118" cy="224" r="7" fill="#2e4a66"/>
-  <circle cx="282" cy="224" r="7" fill="#2e4a66"/>
-  <path d="M118 224L176 224L218 176L282 224L186 224L150 182L218 176" class="bike"/>
-  <path d="M176 224L206 204M206 204L212 176M198 171L220 171" class="bike"/>
-  <path d="M282 224L316 184L335 184M335 184L326 174" class="bike"/>
-  <path d="M118 224L93 183L77 183" class="bike"/>
-  <ellipse cx="201" cy="178" rx="10" ry="5.5" fill="#2e4a66"/>
-  <path d="M201 178L201 202" class="bike"/>
-  <path d="M201 202L181 216" class="bike"/>
-  <path d="M201 202L222 190" class="bike"/>
-  <path d="M181 216L188 224" class="line"/>
-  <path d="M222 190L213 180" class="line"/>
-  <ellipse cx="206" cy="122" rx="67" ry="47" class="fur"/>
-  <ellipse cx="152" cy="111" rx="24" ry="24" class="fur"/>
-  <ellipse cx="136" cy="102" rx="11" ry="18" class="fur" transform="rotate(-18 136 102)"/>
-  <ellipse cx="163" cy="95" rx="10" ry="19" class="fur" transform="rotate(16 163 95)"/>
-  <ellipse cx="127" cy="91" rx="6" ry="10" fill="#f4efe6" stroke="#2f2f2f" stroke-width="2"/>
-  <ellipse cx="171" cy="86" rx="6" ry="10" fill="#f4efe6" stroke="#2f2f2f" stroke-width="2"/>
-  <ellipse cx="152" cy="114" rx="14" ry="16" fill="#fffaf2" stroke="#2f2f2f" stroke-width="2"/>
-  <circle cx="146" cy="111" r="2.3" fill="#2f2f2f"/>
-  <circle cx="158" cy="111" r="2.3" fill="#2f2f2f"/>
-  <path d="M149 118Q152 121 155 118" class="line" style="stroke-width:2"/>
-  <ellipse cx="184" cy="126" rx="10" ry="14" fill="#efe6d9"/>
-  <ellipse cx="215" cy="127" rx="10" ry="14" fill="#efe6d9"/>
-  <ellipse cx="246" cy="126" rx="10" ry="14" fill="#efe6d9"/>
-  <ellipse cx="161" cy="132" rx="11" ry="15" fill="#efe6d9"/>
-  <ellipse cx="146" cy="156" rx="11" ry="16" class="fur"/>
-  <ellipse cx="174" cy="160" rx="11" ry="16" class="fur"/>
-  <ellipse cx="233" cy="155" rx="11" ry="16" class="fur"/>
-  <ellipse cx="260" cy="150" rx="11" ry="16" class="fur"/>
-  <path d="M146 171L170 207L187 224" class="line"/>
-  <path d="M174 176L206 202L222 190" class="line"/>
-  <path d="M233 171L242 224" class="line"/>
-  <path d="M260 166L284 224" class="line"/>
-  <ellipse cx="170" cy="208" rx="9" ry="6" fill="#5f4a3d"/>
-  <ellipse cx="242" cy="224" rx="9" ry="6" fill="#5f4a3d"/>
-  <ellipse cx="284" cy="224" rx="9" ry="6" fill="#5f4a3d"/>
-  <path d="M178 80Q206 66 236 80" class="line" style="stroke:#d8d2c7;stroke-width:7" filter="url(#soft)"/>
-  <text x="12" y="20" font-family="Verdana, sans-serif" font-size="11" fill="#2f2f2f">
-    <tspan x="12" dy="0">Prompt: "Generate an SVG of an alpaca riding a bicycle.</tspan>
-    <tspan x="12" dy="13">Include distinctive large neck, alpaca fur, and active pedaling."</tspan>
-  </text>
+
+  <rect width="400" height="300" fill="url(#sky)"/>
+  <g role="img" aria-label="sun">
+    <title>Sun</title>
+    <circle cx="333" cy="48" r="22" fill="#ffe48d" opacity=".9"/>
+  </g>
+  <g role="img" aria-label="rolling grassy ground">
+    <title>Rolling grassy ground</title>
+    <path d="M0 244 C50 232 88 250 137 240 S226 229 285 241 361 250 400 238 L400 300 L0 300 Z" fill="#93d47b"/>
+  </g>
+  <path d="M38 76h42M300 88h58M318 68h37" class="motion"/>
+  <path d="M39 215h45M308 216h54M322 235h33" class="motion"/>
+
+  <g filter="url(#shadow)">
+    <g class="wheel rearWheel">
+      <circle cx="105" cy="222" r="50" class="bike"/>
+      <circle cx="105" cy="222" r="42" class="bikeThin"/>
+      <path d="M105 172v100M55 222h100M70 187l70 70M140 187l-70 70" class="bikeThin"/>
+    </g>
+    <g class="wheel frontWheel">
+      <circle cx="292" cy="222" r="50" class="bike"/>
+      <circle cx="292" cy="222" r="42" class="bikeThin"/>
+      <path d="M292 172v100M242 222h100M257 187l70 70M327 187l-70 70" class="bikeThin"/>
+    </g>
+    <circle cx="105" cy="222" r="5" class="bikeBlueFill"/>
+    <circle cx="292" cy="222" r="5" class="bikeBlueFill"/>
+    <path d="M105 222 L162 222 L200 178 L244 222 L292 222 M162 222 L139 181 L200 178 L244 222 M200 178 L207 153" class="bike"/>
+    <path d="M207 153h34" class="bike"/>
+    <path d="M292 222 L317 169 L342 166 M342 166 l-12 -12" class="bike"/>
+    <path d="M105 222 L77 178 L58 179" class="bike"/>
+    <g aria-label="bicycle saddle">
+      <title>Bicycle saddle</title>
+      <ellipse cx="211" cy="154" rx="18" ry="7" class="bikeBlueFill" transform="rotate(-7 211 154)"/>
+    </g>
+  </g>
+
+  <g class="bob" aria-label="long-necked fluffy alpaca body and head">
+    <title>Long-necked fluffy alpaca</title>
+    <path d="M170 155 C150 128 150 95 165 70 C175 52 198 54 203 76 C209 103 194 129 199 157 Z" class="fur"/>
+    <path d="M203 79 C213 63 233 59 250 70 C266 80 269 99 257 112 C242 128 211 119 202 101 Z" class="fur"/>
+    <path d="M218 69 L209 39 L231 62" class="fur"/>
+    <path d="M246 73 L255 42 L261 78" class="fur"/>
+    <path d="M254 97 C272 94 284 102 281 114 C278 125 261 125 250 113 Z" fill="#f1d2aa" class="outline"/>
+    <circle cx="232" cy="88" r="3.2" class="dark"/>
+    <circle cx="261" cy="99" r="2.7" class="dark"/>
+    <path d="M253 107 q7 6 16 0" class="softOutline" fill="none"/>
+    <path d="M224 83 q-8 -5 -15 -1 M235 80 q8 -6 17 -1" class="softOutline" fill="none"/>
+    <path d="M207 59 C213 50 230 49 235 60 M197 66 C206 50 226 47 239 62 M217 64 C225 52 243 53 249 67" fill="none" stroke="#fff9ec" stroke-width="5" stroke-linecap="round"/>
+
+    <ellipse cx="187" cy="151" rx="67" ry="42" class="fur"/>
+    <path d="M130 143 C111 138 104 119 118 105 C138 86 169 101 177 128" class="fur"/>
+    <path d="M143 111 C156 104 177 109 188 126" fill="none" stroke="#fff9ec" stroke-width="7" stroke-linecap="round"/>
+    <path d="M132 172 C151 194 184 200 215 190 C242 181 264 160 258 137" fill="none" stroke="#cdb18f" stroke-width="7" stroke-linecap="round" opacity=".55"/>
+    <path d="M129 128 c-12 8 -14 21 -5 31 M154 113 c-13 5 -19 16 -15 28 M184 108 c-12 8 -16 20 -9 33 M213 112 c-10 9 -12 20 -4 31 M239 126 c-8 8 -9 18 -2 27" fill="none" stroke="#fff9ec" stroke-width="5" stroke-linecap="round" opacity=".9"/>
+    <path d="M164 114 C183 106 221 112 244 130" fill="none" stroke="#6a4d38" stroke-width="3" stroke-linecap="round" opacity=".5"/>
+    <path d="M158 142 C175 136 217 139 242 153" fill="none" stroke="#6a4d38" stroke-width="2" stroke-linecap="round" opacity=".35"/>
+
+    <g class="scarf" transform-origin="166 102">
+      <path d="M164 100 C145 95 130 89 116 75" fill="none" stroke="#e94b5f" stroke-width="9" stroke-linecap="round"/>
+      <path d="M160 110 C143 112 128 115 110 126" fill="none" stroke="#f47c65" stroke-width="8" stroke-linecap="round"/>
+    </g>
+    <path d="M164 98 C176 105 191 105 202 96" fill="none" stroke="#e94b5f" stroke-width="10" stroke-linecap="round"/>
+  </g>
+
+  <g aria-label="alpaca legs pushing bicycle pedals">
+    <title>Alpaca legs pushing the pedals</title>
+    <path d="M139 174 C132 190 133 204 151 214 L176 229" class="outline" fill="none"/>
+    <ellipse cx="181" cy="231" rx="12" ry="6" class="hoof" transform="rotate(18 181 231)"/>
+    <path d="M184 177 C197 190 205 201 200 212 L184 237" class="outline" fill="none"/>
+    <ellipse cx="181" cy="241" rx="12" ry="6" class="hoof" transform="rotate(-24 181 241)"/>
+    <path d="M220 174 C232 190 238 205 226 217 L211 229" class="outline" fill="none"/>
+    <ellipse cx="207" cy="232" rx="12" ry="6" class="hoof" transform="rotate(-25 207 232)"/>
+    <path d="M244 163 C262 176 271 194 263 211 L248 239" class="outline" fill="none"/>
+    <ellipse cx="246" cy="243" rx="12" ry="6" class="hoof" transform="rotate(-10 246 243)"/>
+  </g>
+
+  <g class="crank" aria-label="spinning bicycle crank and pedals">
+    <title>Spinning bicycle crank and pedals</title>
+    <circle cx="200" cy="212" r="12" class="crankCircle"/>
+    <path d="M200 212 L177 229 M200 212 L222 195" class="crankLine"/>
+    <rect x="166" y="225" width="23" height="7" rx="3.5" class="bikeBlueFill" transform="rotate(18 177 229)"/>
+    <rect x="211" y="191" width="23" height="7" rx="3.5" class="bikeBlueFill" transform="rotate(-25 222 195)"/>
+  </g>
+
+  <path d="M19 258 C42 252 56 252 84 258 M276 260 C305 252 331 252 370 260" fill="none" stroke="#4d8f50" stroke-width="4" stroke-linecap="round" opacity=".55"/>
 </svg>
