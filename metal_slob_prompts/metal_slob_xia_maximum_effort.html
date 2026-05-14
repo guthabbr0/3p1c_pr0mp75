@@ -1,0 +1,2002 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>METAL SLOB xIA</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-user-select: none; user-select: none; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: #000;
+  font-family: 'Impact', 'Arial Black', Helvetica, sans-serif; color: #fff; }
+body { display: flex; align-items: center; justify-content: center; cursor: crosshair;
+  background: radial-gradient(ellipse at center, #1a0a1a 0%, #000 80%); }
+#stage { position: relative; width: 1280px; height: 720px; max-width: 100vw; max-height: 100vh;
+  aspect-ratio: 16 / 9; background: #000; overflow: hidden; transform-origin: center center;
+  box-shadow: 0 0 40px rgba(255, 80, 0, 0.4), 0 0 120px rgba(255, 0, 0, 0.25), inset 0 0 30px #000; }
+canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; image-rendering: crisp-edges; }
+.hud { position: absolute; inset: 0; pointer-events: none; font-weight: 900; letter-spacing: 1px; z-index: 20; }
+
+.title-bar { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); font-size: 28px;
+  color: #ffcc00; letter-spacing: 4px; font-family: 'Impact';
+  text-shadow: 2px 2px 0 #a33, 4px 4px 0 #600, 0 0 20px rgba(255, 180, 0, 0.8); }
+.title-bar span.ia { color: #8affff; text-shadow: 2px 2px 0 #06c, 4px 4px 0 #003, 0 0 20px #0ff; }
+
+.hp-wrap { position: absolute; left: 18px; top: 60px; width: 280px; }
+.hp-label { font-size: 15px; color: #fff; text-shadow: 2px 2px 0 #000; letter-spacing: 2px; }
+.hp-bar { width: 100%; height: 22px; border: 3px solid #fff; background: #300; margin-top: 4px;
+  box-shadow: 0 0 8px rgba(255,0,0,.5), inset 0 0 6px #000; position: relative; overflow: hidden; }
+.hp-fill { height: 100%; background: linear-gradient(180deg, #ff7070 0%, #d00 50%, #500 100%);
+  transition: width 0.15s linear; box-shadow: inset 0 0 6px rgba(255, 120, 120, 0.6); position: relative; }
+.hp-fill::after { content: ''; position: absolute; top: 2px; left: 0; right: 0; height: 3px;
+  background: rgba(255, 200, 200, 0.5); }
+
+.ammo-wrap { position: absolute; right: 18px; top: 60px; text-align: right; }
+.ammo-label { font-size: 15px; color: #fff; text-shadow: 2px 2px 0 #000; letter-spacing: 2px; }
+.ammo-value { font-size: 54px; line-height: 1; font-family: 'Courier New', monospace; font-weight: 900;
+  text-shadow: 2px 2px 0 #000, 0 0 16px rgba(255, 180, 80, 0.9); transition: color 0.1s; }
+.ammo-value.reloading { font-size: 22px; color: #fc6; animation: reloadPulse 0.4s infinite; }
+@keyframes reloadPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+.progress-wrap { position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%); width: 62%; }
+.progress-label { font-size: 13px; color: #fff; text-shadow: 2px 2px 0 #000; text-align: center; margin-bottom: 4px; letter-spacing: 3px; }
+.progress-bar { width: 100%; height: 16px; border: 2px solid #fff; background: rgba(0,0,0,.8);
+  position: relative; box-shadow: 0 0 12px rgba(255, 140, 0, 0.4); }
+.progress-fill { height: 100%; background: linear-gradient(90deg, #f60 0%, #fc0 60%, #ff3 100%);
+  box-shadow: 0 0 10px #f90 inset; transition: width 0.1s linear; }
+.progress-icon { position: absolute; top: -20px; width: 24px; height: 24px; font-size: 18px;
+  color: #fff; text-shadow: 2px 2px 0 #000; text-align: center; line-height: 24px; transform: translateX(-50%); }
+
+.combo-counter { position: absolute; right: 18px; top: 160px; text-align: right; font-size: 28px;
+  color: #fc0; text-shadow: 3px 3px 0 #500, 0 0 20px #f80; opacity: 0; transition: opacity 0.2s; letter-spacing: 2px; }
+.combo-counter.show { opacity: 1; }
+
+/* INTRO OVERLAY */
+.intro-overlay { position: absolute; inset: 0; pointer-events: none; display: flex;
+  flex-direction: column; align-items: center; justify-content: flex-end; padding-bottom: 90px; z-index: 15; }
+.hack-msg { font-size: 44px; color: #ffeb3b; text-align: center; letter-spacing: 6px;
+  text-shadow: 4px 4px 0 #c00, 0 0 24px #f90, 0 0 60px rgba(255,200,0,0.8);
+  animation: flash 0.5s infinite; font-family: 'Impact'; }
+.insert-coins { font-size: 26px; color: #fff; text-align: center; margin-top: 20px;
+  text-shadow: 3px 3px 0 #700, 0 0 18px #f30; animation: blink 0.9s infinite; letter-spacing: 4px; }
+.keys-msg { font-size: 18px; color: #aee; margin-top: 14px; letter-spacing: 3px;
+  text-shadow: 2px 2px 0 #035, 0 0 12px rgba(100,220,255,0.6); }
+.step { display: inline-block; padding: 4px 10px; border: 2px solid #aee; margin: 0 5px;
+  background: rgba(0, 30, 60, 0.5); border-radius: 3px; }
+.step.done { color: #3f0; border-color: #3f0; text-shadow: 0 0 12px #3f0;
+  background: rgba(0, 60, 0, 0.6); box-shadow: 0 0 14px rgba(60,255,60,0.5); }
+@keyframes flash { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+@keyframes blink { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
+
+.countdown { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font-size: 320px; color: #ff3; font-family: 'Impact'; z-index: 100; pointer-events: none;
+  text-shadow: 10px 10px 0 #a00, 0 0 60px #ffa, 0 0 120px #f80;
+  animation: countdownBeat 1s infinite; }
+@keyframes countdownBeat {
+  0%, 100% { transform: scale(1); }
+  25% { transform: scale(1.3); }
+  50% { transform: scale(1); }
+}
+
+.countdown-sub { position: absolute; top: 70%; left: 0; right: 0; text-align: center;
+  font-size: 30px; color: #fff; text-shadow: 3px 3px 0 #600; letter-spacing: 4px; z-index: 100; }
+
+.announce { position: absolute; left: 50%; top: 32%; transform: translate(-50%, -50%);
+  font-size: 110px; color: #fff; font-weight: 900; font-family: 'Impact';
+  text-shadow: 6px 6px 0 #b00, 0 0 40px #f80, 0 0 80px #f30;
+  pointer-events: none; opacity: 0; white-space: nowrap; z-index: 18; letter-spacing: 4px; }
+
+.gameover-black { position: absolute; inset: 0; background: #000; z-index: 500; }
+.gameover-reveal { position: absolute; inset: 0; background: #b00; z-index: 500;
+  display: flex; align-items: center; justify-content: center; animation: bloodFlash 0.12s infinite; }
+@keyframes bloodFlash {
+  0%, 100% { background: #b00; }
+  50% { background: #f22; }
+}
+.gameover-text { font-size: 300px; color: #fff; font-family: 'Impact'; letter-spacing: 24px;
+  text-shadow: 10px 10px 0 #000, 0 0 50px #fff, 0 0 120px #f00; animation: shake 0.1s infinite; }
+@keyframes shake {
+  0% { transform: translate(0, 0); }
+  25% { transform: translate(-4px, 3px); }
+  50% { transform: translate(4px, -2px); }
+  75% { transform: translate(-3px, -4px); }
+  100% { transform: translate(0, 0); }
+}
+.gameover-sub { position: absolute; bottom: 50px; left: 0; right: 0; text-align: center;
+  font-size: 32px; color: #fff; text-shadow: 4px 4px 0 #000; letter-spacing: 4px; font-style: italic; }
+
+.win-white { position: absolute; inset: 0; background: #fff; z-index: 500; }
+.win-reveal { position: absolute; inset: 0; background: radial-gradient(ellipse at center, #cff 0%, #8bf 70%, #48d 100%);
+  z-index: 500; display: flex; align-items: center; justify-content: center; flex-direction: column;
+  animation: angelicGlow 0.3s infinite alternate; }
+@keyframes angelicGlow {
+  0% { filter: brightness(1); }
+  100% { filter: brightness(1.2); }
+}
+.win-text { font-size: 300px; color: #0080ff; font-family: 'Impact'; letter-spacing: 24px;
+  text-shadow: 8px 8px 0 #fff, 0 0 40px #0af, 0 0 100px #08f, 0 0 160px #fff; }
+.win-sub { position: absolute; bottom: 40px; left: 20px; right: 20px; text-align: center;
+  font-size: 24px; color: #124; letter-spacing: 2px; line-height: 1.5; font-family: 'Georgia', serif; font-style: italic; }
+
+.scanlines { position: absolute; inset: 0; pointer-events: none; z-index: 10;
+  background: repeating-linear-gradient(0deg, rgba(0,0,0,0.15) 0, rgba(0,0,0,0.15) 2px, transparent 2px, transparent 4px);
+  mix-blend-mode: multiply; opacity: 0.55; }
+.vignette { position: absolute; inset: 0; pointer-events: none; z-index: 11;
+  background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.7) 100%); }
+.crt-glow { position: absolute; inset: 0; pointer-events: none; z-index: 12;
+  background: linear-gradient(180deg, rgba(255,220,180,0.04) 0%, transparent 40%, transparent 60%, rgba(120,60,180,0.04) 100%); }
+
+.coin-sparkle { position: absolute; pointer-events: none; z-index: 16;
+  color: #ff0; font-size: 22px; text-shadow: 0 0 12px #ff0; font-weight: 900; }
+
+#audio-hint { position: absolute; inset: 0; background: rgba(0,0,0,0.85); z-index: 999;
+  display: flex; align-items: center; justify-content: center; flex-direction: column;
+  font-size: 32px; color: #ff3; text-shadow: 3px 3px 0 #600, 0 0 20px #f80;
+  cursor: pointer; letter-spacing: 3px; font-family: 'Impact'; }
+#audio-hint .small { font-size: 18px; color: #aff; margin-top: 20px; letter-spacing: 2px; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="game" width="1280" height="720"></canvas>
+  <div class="crt-glow"></div>
+  <div class="scanlines"></div>
+  <div class="vignette"></div>
+  <div class="hud" id="hud">
+    <div class="title-bar">METAL SLOB x<span class="ia">IA</span></div>
+    <div class="hp-wrap">
+      <div class="hp-label">ALECK BLACK &mdash; HP</div>
+      <div class="hp-bar"><div class="hp-fill" id="hp-fill" style="width: 100%"></div></div>
+    </div>
+    <div class="ammo-wrap">
+      <div class="ammo-label">AMMO</div>
+      <div class="ammo-value" id="ammo-value">69</div>
+    </div>
+    <div class="progress-wrap">
+      <div class="progress-label">TRAIN ADVANCE</div>
+      <div class="progress-bar">
+        <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+        <div class="progress-icon" id="progress-icon" style="left: 0%">&#x1F682;</div>
+      </div>
+    </div>
+    <div class="combo-counter" id="combo-counter">COMBO x0</div>
+  </div>
+  <div class="announce" id="announce"></div>
+  <div class="intro-overlay" id="intro">
+    <div class="hack-msg">FREE CREDITS: HACK!</div>
+    <div class="keys-msg">
+      <span class="step" id="step1">&larr; LEFT/A</span>
+      <span class="step" id="step2">&rarr; RIGHT/D</span>
+      <span class="step" id="step3">SPACE</span>
+    </div>
+    <div class="insert-coins">&#x2605; INSERT COINS &#x2605;</div>
+  </div>
+  <div class="countdown" id="countdown" style="display:none">5</div>
+  <div class="countdown-sub" id="countdown-sub" style="display:none">DROPPING IN&hellip;</div>
+  <div id="audio-hint">CLICK OR PRESS ANY KEY TO ENGAGE<div class="small">Aleck Black &mdash; Metal Slob xIA</div></div>
+</div>
+<script>
+'use strict';
+/* =====================================================================
+   METAL SLOB xIA - an original arcade run-and-gun homage
+   Single-file browser game. Canvas + Web Audio + CSS HUD overlays.
+   ===================================================================== */
+
+// -------------------- constants --------------------
+const W = 1280, H = 720;
+const GROUND_Y = 580;    // player feet when grounded on train roof
+const TRAIN_TOP = 580;   // top surface of the train cars
+const LEVEL_DUR = 155;   // seconds
+
+// -------------------- canvas --------------------
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+ctx.imageSmoothingEnabled = false;
+
+// -------------------- utils --------------------
+const rand  = (a, b) => a + Math.random() * (b - a);
+const randi = (a, b) => Math.floor(rand(a, b));
+const choice = arr => arr[randi(0, arr.length)];
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const sign  = v => v < 0 ? -1 : v > 0 ? 1 : 0;
+const dist2 = (ax, ay, bx, by) => { const dx = ax - bx, dy = ay - by; return dx*dx + dy*dy; };
+
+// -------------------- input --------------------
+const Input = {
+  keys: {}, _prev: {},
+  init() {
+    window.addEventListener('keydown', e => {
+      if ([' ', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) e.preventDefault();
+      this.keys[e.code] = true;
+      Game.onAnyKey(e.code);
+    });
+    window.addEventListener('keyup', e => { this.keys[e.code] = false; });
+    window.addEventListener('blur', () => { this.keys = {}; });
+  },
+  held(codes) { return codes.some(c => this.keys[c]); },
+  pressed(codes) { return codes.some(c => this.keys[c] && !this._prev[c]); },
+  endFrame() {
+    this._prev = Object.assign({}, this.keys);
+  }
+};
+Input.init();
+
+// -------------------- audio engine --------------------
+class AudioEngine {
+  constructor() {
+    this.ready = false;
+    this.musicPlaying = false;
+    this._sirenNodes = null;
+  }
+  init() {
+    if (this.ready) return;
+    try {
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      this.ctx = new Ctx();
+      this.master = this.ctx.createGain();
+      this.master.gain.value = 0.55;
+      // soft limiter-ish compressor
+      this.comp = this.ctx.createDynamicsCompressor();
+      this.comp.threshold.value = -14;
+      this.comp.knee.value = 10;
+      this.comp.ratio.value = 8;
+      this.comp.attack.value = 0.003;
+      this.comp.release.value = 0.18;
+      this.master.connect(this.comp).connect(this.ctx.destination);
+      // pre-built noise buffer
+      const nb = this.ctx.createBuffer(1, this.ctx.sampleRate * 1, this.ctx.sampleRate);
+      const nd = nb.getChannelData(0);
+      for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
+      this.noise = nb;
+      this.musicGain = this.ctx.createGain();
+      this.musicGain.gain.value = 0.35;
+      this.musicGain.connect(this.master);
+      this.ready = true;
+    } catch (e) { console.warn('AudioContext failed', e); this.ready = false; }
+  }
+  t() { return this.ctx.currentTime; }
+
+  // utility: gated noise
+  _noise(t, dur, filter, freq, peak, rel = dur, Q = 1) {
+    const src = this.ctx.createBufferSource();
+    src.buffer = this.noise; src.loop = true;
+    const f = this.ctx.createBiquadFilter(); f.type = filter; f.frequency.value = freq; f.Q.value = Q;
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(peak, t + 0.004);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + rel);
+    src.connect(f).connect(g).connect(this.master);
+    src.start(t); src.stop(t + dur + 0.05);
+    return { f, g };
+  }
+  _tone(t, freq, dur, type, peak, endFreq = null) {
+    const o = this.ctx.createOscillator(); o.type = type;
+    o.frequency.setValueAtTime(freq, t);
+    if (endFreq !== null) o.frequency.exponentialRampToValueAtTime(Math.max(0.01, endFreq), t + dur);
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(peak, t + 0.005);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g).connect(this.master);
+    o.start(t); o.stop(t + dur + 0.05);
+    return { o, g };
+  }
+
+  rifle() {
+    if (!this.ready) return;
+    const t = this.t();
+    // snap crack (high-pass noise)
+    this._noise(t, 0.08, 'highpass', 1400, 0.35, 0.06);
+    // body thump (sawtooth sweep)
+    this._tone(t, 180, 0.07, 'sawtooth', 0.32, 45);
+    // upper snap (square chirp)
+    this._tone(t + 0.002, 900, 0.04, 'square', 0.12, 280);
+  }
+  reload() {
+    if (!this.ready) return;
+    const t0 = this.t();
+    // mag out click
+    this._tone(t0, 240, 0.06, 'square', 0.22, 180);
+    this._noise(t0 + 0.05, 0.06, 'highpass', 2000, 0.18, 0.05);
+    // mag slam
+    const t1 = t0 + 0.6;
+    this._tone(t1, 160, 0.1, 'square', 0.3, 90);
+    this._noise(t1, 0.1, 'highpass', 1500, 0.2, 0.08);
+    // charge / bolt
+    const t2 = t0 + 1.05;
+    this._tone(t2, 360, 0.07, 'square', 0.28, 520);
+    this._noise(t2 + 0.05, 0.07, 'highpass', 3200, 0.2, 0.07);
+  }
+  knifeSwing() {
+    if (!this.ready) return;
+    const t = this.t();
+    const src = this.ctx.createBufferSource(); src.buffer = this.noise;
+    const f = this.ctx.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 4;
+    f.frequency.setValueAtTime(350, t);
+    f.frequency.exponentialRampToValueAtTime(2600, t + 0.16);
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.28, t + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
+    src.connect(f).connect(g).connect(this.master);
+    src.start(t); src.stop(t + 0.25);
+  }
+  knifeHit() {
+    if (!this.ready) return;
+    const t = this.t();
+    // wet thud
+    this._tone(t, 100, 0.18, 'sine', 0.55, 35);
+    // splash
+    const src = this.ctx.createBufferSource(); src.buffer = this.noise;
+    const f = this.ctx.createBiquadFilter(); f.type = 'lowpass';
+    f.frequency.setValueAtTime(2400, t);
+    f.frequency.exponentialRampToValueAtTime(350, t + 0.16);
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.34, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.2);
+    src.connect(f).connect(g).connect(this.master);
+    src.start(t); src.stop(t + 0.23);
+  }
+  coin() {
+    if (!this.ready) return;
+    const t = this.t();
+    const freqs = [1320, 1760, 2100];
+    freqs.forEach((fq, i) => this._tone(t + i * 0.06, fq, 0.14, 'square', 0.14));
+  }
+  enemyShoot() {
+    if (!this.ready) return;
+    const t = this.t();
+    this._tone(t, 290, 0.09, 'square', 0.14, 70);
+    this._noise(t, 0.06, 'highpass', 1100, 0.1, 0.05);
+  }
+  hitFlesh() {
+    if (!this.ready) return;
+    const t = this.t();
+    this._tone(t, 140, 0.1, 'sine', 0.28, 55);
+    this._noise(t, 0.08, 'lowpass', 900, 0.14, 0.08);
+  }
+  hitPlayer() {
+    if (!this.ready) return;
+    const t = this.t();
+    this._tone(t, 80, 0.25, 'sine', 0.5, 40);
+    this._noise(t, 0.15, 'lowpass', 600, 0.2, 0.15);
+  }
+  // formant-based vocal synthesis
+  _vocal(t, dur, pitchEnv, formants, gainVal = 0.3, type = 'sawtooth') {
+    // pitchEnv: array of [time, freq]
+    // formants: array of {f, Q}
+    const o = this.ctx.createOscillator(); o.type = type;
+    pitchEnv.forEach((pt, i) => {
+      const [rt, freq] = pt;
+      if (i === 0) o.frequency.setValueAtTime(freq, t + rt);
+      else o.frequency.linearRampToValueAtTime(freq, t + rt);
+    });
+    const mix = this.ctx.createGain(); mix.gain.value = 1 / formants.length;
+    formants.forEach(f => {
+      const bp = this.ctx.createBiquadFilter();
+      bp.type = 'bandpass'; bp.frequency.value = f.f; bp.Q.value = f.Q || 8;
+      o.connect(bp).connect(mix);
+    });
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(gainVal, t + 0.03);
+    g.gain.linearRampToValueAtTime(gainVal * 0.9, t + dur * 0.75);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    mix.connect(g).connect(this.master);
+    o.start(t); o.stop(t + dur + 0.05);
+  }
+  enemyYell(type) {
+    if (!this.ready) return;
+    const t = this.t();
+    if (type === 'attack') {
+      const base = 180 + Math.random() * 50;
+      this._vocal(t, 0.35, [[0, base], [0.1, base * 1.25], [0.35, base * 0.9]],
+        [{ f: 650, Q: 7 }, { f: 1250, Q: 8 }], 0.32);
+    } else if (type === 'swear') {
+      const base = 140 + Math.random() * 40;
+      this._vocal(t, 0.55, [[0, base], [0.2, base * 0.85], [0.55, base * 0.65]],
+        [{ f: 420, Q: 7 }, { f: 950, Q: 8 }, { f: 2400, Q: 6 }], 0.3);
+    } else { // die
+      const base = 220 + Math.random() * 100;
+      this._vocal(t, 0.7, [[0, base * 1.1], [0.1, base], [0.7, base * 0.25]],
+        [{ f: 520 + Math.random() * 200, Q: 6 }, { f: 1200 + Math.random() * 300, Q: 6 }], 0.34);
+    }
+  }
+  slideYell() {
+    if (!this.ready) return;
+    const t = this.t();
+    // "YEAAAAH" rising then sustained
+    const base = 170;
+    // Y -> E -> AA formants: 270/2300 -> 530/1840 -> 700/1100
+    const o = this.ctx.createOscillator(); o.type = 'sawtooth';
+    o.frequency.setValueAtTime(base * 1.1, t);
+    o.frequency.linearRampToValueAtTime(base * 1.5, t + 0.12);
+    o.frequency.linearRampToValueAtTime(base * 1.25, t + 0.55);
+    o.frequency.linearRampToValueAtTime(base * 0.9, t + 0.75);
+
+    const f1 = this.ctx.createBiquadFilter(); f1.type = 'bandpass'; f1.Q.value = 6;
+    f1.frequency.setValueAtTime(280, t);
+    f1.frequency.linearRampToValueAtTime(540, t + 0.1);
+    f1.frequency.linearRampToValueAtTime(720, t + 0.3);
+    const f2 = this.ctx.createBiquadFilter(); f2.type = 'bandpass'; f2.Q.value = 6;
+    f2.frequency.setValueAtTime(2300, t);
+    f2.frequency.linearRampToValueAtTime(1800, t + 0.1);
+    f2.frequency.linearRampToValueAtTime(1100, t + 0.3);
+
+    const mix = this.ctx.createGain(); mix.gain.value = 0.5;
+    o.connect(f1).connect(mix);
+    o.connect(f2).connect(mix);
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.48, t + 0.05);
+    g.gain.linearRampToValueAtTime(0.42, t + 0.55);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.8);
+    mix.connect(g).connect(this.master);
+    o.start(t); o.stop(t + 0.85);
+  }
+  announcer(phrase) {
+    if (!this.ready) return;
+    const t = this.t();
+    // deep synthesized "voice" for arena announcer feel
+    const syllables = phrase.replace('!', '').split(/\s+/);
+    let offset = 0;
+    // split words into 1-3 syllables roughly by length
+    const tokens = [];
+    syllables.forEach(w => {
+      const seg = Math.max(1, Math.floor(w.length / 3));
+      for (let i = 0; i < seg; i++) tokens.push(w.slice(i * 3, (i + 1) * 3) || w);
+    });
+    tokens.forEach((syl, idx) => {
+      const st = t + offset;
+      const dur = 0.14 + syl.length * 0.04;
+      const base = 60 + (idx % 3) * 4;
+      const vowelPick = (syl.match(/[aeiouy]/gi) || ['a'])[0].toLowerCase();
+      const vmap = { a: [720, 1200], e: [530, 1850], i: [360, 2100], o: [500, 900], u: [360, 760], y: [460, 1820] };
+      const [f1v, f2v] = vmap[vowelPick] || vmap.a;
+      this._vocal(st, dur, [[0, base], [dur, base * 0.85]],
+        [{ f: f1v, Q: 10 }, { f: f2v, Q: 10 }], 0.4, 'sawtooth');
+      // pitched-down noise click for consonant
+      const src = this.ctx.createBufferSource(); src.buffer = this.noise;
+      const f = this.ctx.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 3; f.frequency.value = 900 + Math.random() * 500;
+      const ng = this.ctx.createGain();
+      ng.gain.setValueAtTime(0.0001, st);
+      ng.gain.exponentialRampToValueAtTime(0.18, st + 0.01);
+      ng.gain.exponentialRampToValueAtTime(0.0001, st + 0.06);
+      src.connect(f).connect(ng).connect(this.master);
+      src.start(st); src.stop(st + 0.08);
+      offset += dur + 0.03;
+    });
+  }
+  siren() {
+    if (!this.ready) return;
+    if (this._sirenNodes) return;
+    const t = this.t();
+    const out = this.ctx.createGain(); out.gain.value = 0; out.connect(this.master);
+    out.gain.exponentialRampToValueAtTime(0.9, t + 0.4);
+
+    const oscs = [];
+    for (let i = 0; i < 3; i++) {
+      const o = this.ctx.createOscillator();
+      o.type = i === 0 ? 'sawtooth' : (i === 1 ? 'square' : 'triangle');
+      o.detune.value = i * 6 - 6;
+      // sweeping frequency
+      const period = 1.1;
+      const startF = 250, peakF = 880;
+      o.frequency.setValueAtTime(startF, t);
+      for (let k = 0; k < 60; k++) {
+        o.frequency.linearRampToValueAtTime(peakF, t + k * period + period * 0.5);
+        o.frequency.linearRampToValueAtTime(startF, t + (k + 1) * period);
+      }
+      const og = this.ctx.createGain(); og.gain.value = 0.25;
+      o.connect(og).connect(out);
+      o.start(t);
+      oscs.push(o);
+    }
+    this._sirenNodes = { oscs, out };
+  }
+  landThud() {
+    if (!this.ready) return;
+    const t = this.t();
+    this._tone(t, 90, 0.4, 'sine', 0.9, 28);
+    this._noise(t, 0.25, 'lowpass', 300, 0.25, 0.2);
+    this._tone(t + 0.05, 60, 0.3, 'triangle', 0.4, 25);
+  }
+  impact(n = 1) {
+    if (!this.ready) return;
+    const t = this.t();
+    this._tone(t, 70, 0.1 * n, 'sine', 0.4, 30);
+  }
+  jumpSound() {
+    if (!this.ready) return;
+    const t = this.t();
+    this._tone(t, 300, 0.12, 'square', 0.12, 520);
+  }
+
+  /* background music - simple arcade-rock loop in E minor */
+  startMusic() {
+    if (!this.ready || this.musicPlaying) return;
+    this.musicPlaying = true;
+    this._scheduleMusic();
+  }
+  stopMusic() { this.musicPlaying = false; }
+  _scheduleMusic() {
+    if (!this.musicPlaying) return;
+    const bpm = 152;
+    const sixteenth = 60 / bpm / 4;
+    // 32 x 16th = 2 bars of 4/4
+    //            1                  2                  3                  4
+    const bass =  [0,  0,  0, 7,  0,  0,  7, 0,  3,  3,  3, 10, 3,  3,  10, 3,
+                   5,  5,  5, 12, 5,  5,  12, 5,  0,  0,  0, 7,  -2, -2, 5,  -2];
+    const lead =  [-1, 12, 15, 19, 15, 12, 15, 19, -1, 15, 17, 22, 17, 15, 17, 22,
+                   -1, 17, 20, 24, 20, 17, 20, 24, -1, 19, 22, 27, 22, 19, 15, 12];
+    const kick =  [1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0,
+                   1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1, 1];
+    const snare = [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0,
+                   0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1];
+    const hat =   [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1];
+    const openHat=[0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0,
+                   0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1];
+    const baseBass = 82.41;  // E2
+    const baseLead = 329.63; // E4
+    const semi = n => Math.pow(2, n / 12);
+    const t0 = this.ctx.currentTime + 0.05;
+    for (let i = 0; i < bass.length; i++) {
+      const t = t0 + i * sixteenth;
+      if (bass[i] !== undefined && bass[i] !== -1) {
+        this._musicTone(baseBass * semi(bass[i]), t, sixteenth * 1.8, 'sawtooth', 0.14, 'bass');
+      }
+      if (lead[i] !== -1) {
+        this._musicTone(baseLead * semi(lead[i]), t, sixteenth * 1.2, 'square', 0.06, 'lead');
+      }
+      if (kick[i]) this._kick(t);
+      if (snare[i]) this._snare(t);
+      if (hat[i]) this._hat(t, openHat[i] ? 0.05 : 0.018);
+    }
+    const loopDur = bass.length * sixteenth;
+    setTimeout(() => this._scheduleMusic(), (loopDur - 0.04) * 1000);
+  }
+  _musicTone(freq, t, dur, type, peak, kind) {
+    const o = this.ctx.createOscillator(); o.type = type;
+    o.frequency.value = freq;
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(peak, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    if (kind === 'lead') {
+      const f = this.ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 3200;
+      o.connect(f).connect(g).connect(this.musicGain);
+    } else {
+      o.connect(g).connect(this.musicGain);
+    }
+    o.start(t); o.stop(t + dur + 0.05);
+  }
+  _kick(t) {
+    const o = this.ctx.createOscillator(); o.type = 'sine';
+    o.frequency.setValueAtTime(150, t);
+    o.frequency.exponentialRampToValueAtTime(40, t + 0.12);
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.6, t + 0.005);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.18);
+    o.connect(g).connect(this.musicGain);
+    o.start(t); o.stop(t + 0.2);
+  }
+  _snare(t) {
+    const src = this.ctx.createBufferSource(); src.buffer = this.noise;
+    const f = this.ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 1500; f.Q.value = 0.8;
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.35, t + 0.004);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.14);
+    src.connect(f).connect(g).connect(this.musicGain);
+    src.start(t); src.stop(t + 0.16);
+    // add low body
+    const o = this.ctx.createOscillator(); o.type = 'triangle';
+    o.frequency.value = 200;
+    const g2 = this.ctx.createGain();
+    g2.gain.setValueAtTime(0.0001, t);
+    g2.gain.exponentialRampToValueAtTime(0.2, t + 0.004);
+    g2.gain.exponentialRampToValueAtTime(0.0001, t + 0.08);
+    o.connect(g2).connect(this.musicGain);
+    o.start(t); o.stop(t + 0.1);
+  }
+  _hat(t, dur) {
+    const src = this.ctx.createBufferSource(); src.buffer = this.noise;
+    const f = this.ctx.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = 6500;
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.08, t + 0.002);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    src.connect(f).connect(g).connect(this.musicGain);
+    src.start(t); src.stop(t + dur + 0.02);
+  }
+}
+const audio = new AudioEngine();
+
+// -------------------- camera --------------------
+const Camera = {
+  shake: 0, shakeX: 0, shakeY: 0,
+  update(dt) {
+    if (this.shake > 0) {
+      this.shake = Math.max(0, this.shake - dt);
+      const mag = this.shake * 22;
+      this.shakeX = (Math.random() - 0.5) * mag;
+      this.shakeY = (Math.random() - 0.5) * mag;
+    } else {
+      this.shakeX = 0; this.shakeY = 0;
+    }
+  },
+  bump(amt) { this.shake = Math.min(1.2, Math.max(this.shake, amt)); }
+};
+
+// -------------------- particles --------------------
+const particles = [];
+function addParticle(type, opts) {
+  particles.push(Object.assign({
+    type, x: 0, y: 0, vx: 0, vy: 0, life: 0.5, t: 0,
+    size: 3, color: '#fff', grav: 600, drag: 0
+  }, opts));
+}
+function updateParticles(dt) {
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.t += dt;
+    if (p.t >= p.life) { particles.splice(i, 1); continue; }
+    p.vy += p.grav * dt;
+    if (p.drag) { p.vx *= (1 - p.drag * dt); p.vy *= (1 - p.drag * dt); }
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+  }
+}
+function drawParticles() {
+  for (const p of particles) {
+    const lifeFrac = 1 - p.t / p.life;
+    ctx.globalAlpha = lifeFrac;
+    if (p.type === 'spark') {
+      ctx.fillStyle = p.color;
+      ctx.fillRect(p.x | 0, p.y | 0, p.size, p.size);
+    } else if (p.type === 'smoke') {
+      ctx.fillStyle = p.color;
+      const s = p.size * (1 + (1 - lifeFrac) * 1.4);
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, s, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (p.type === 'casing') {
+      ctx.fillStyle = p.color;
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.t * 20);
+      ctx.fillRect(-3, -1, 6, 2);
+      ctx.restore();
+    } else if (p.type === 'blood') {
+      ctx.fillStyle = p.color;
+      const s = p.size * (0.6 + lifeFrac * 0.8);
+      ctx.fillRect(p.x | 0, p.y | 0, s, s);
+    } else if (p.type === 'flash') {
+      ctx.fillStyle = p.color;
+      ctx.globalAlpha = lifeFrac * 0.95;
+      ctx.beginPath();
+      const s = p.size * (2 - lifeFrac);
+      ctx.arc(p.x, p.y, s, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (p.type === 'starburst') {
+      ctx.fillStyle = p.color;
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.t * 6);
+      const s = p.size * (1 + (1 - lifeFrac));
+      for (let a = 0; a < 4; a++) {
+        ctx.rotate(Math.PI / 4);
+        ctx.fillRect(-s / 8, -s, s / 4, s * 2);
+      }
+      ctx.restore();
+    }
+  }
+  ctx.globalAlpha = 1;
+}
+
+// -------------------- bullets --------------------
+const bullets = [];
+function spawnBullet(x, y, vx, vy, owner, dmg = 10) {
+  bullets.push({ x, y, vx, vy, owner, dmg, life: 1.2, t: 0,
+    trail: [] });
+}
+function updateBullets(dt) {
+  for (let i = bullets.length - 1; i >= 0; i--) {
+    const b = bullets[i];
+    b.t += dt;
+    b.trail.push([b.x, b.y]); if (b.trail.length > 4) b.trail.shift();
+    b.x += b.vx * dt; b.y += b.vy * dt;
+    if (b.t >= b.life || b.x < -40 || b.x > W + 40 || b.y < -40 || b.y > H + 40) {
+      bullets.splice(i, 1); continue;
+    }
+    // collisions
+    if (b.owner === 'player') {
+      for (const e of Game.enemies) {
+        if (e.dead) continue;
+        if (b.x > e.x - 22 && b.x < e.x + 22 && b.y > e.y - 68 && b.y < e.y - 4) {
+          e.takeHit(b.dmg, b.vx > 0 ? 1 : -1);
+          bullets.splice(i, 1); break;
+        }
+      }
+    } else if (b.owner === 'enemy') {
+      const p = Game.player;
+      if (!p.dead && !p.invuln && b.x > p.x - 18 && b.x < p.x + 18 && b.y > p.y - 68 && b.y < p.y - 4) {
+        p.takeHit(b.dmg);
+        bullets.splice(i, 1);
+      }
+    }
+  }
+}
+function drawBullets() {
+  for (const b of bullets) {
+    if (b.owner === 'player') {
+      // tracer
+      ctx.strokeStyle = 'rgba(255, 240, 120, 0.6)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      if (b.trail.length > 1) {
+        ctx.moveTo(b.trail[0][0], b.trail[0][1]);
+        for (let i = 1; i < b.trail.length; i++) ctx.lineTo(b.trail[i][0], b.trail[i][1]);
+        ctx.stroke();
+      }
+      ctx.fillStyle = '#ffef7a';
+      ctx.fillRect(b.x - 4, b.y - 2, 8, 3);
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(b.x - 2, b.y - 1, 4, 2);
+    } else {
+      ctx.fillStyle = '#ff4a4a';
+      ctx.fillRect(b.x - 3, b.y - 2, 6, 3);
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(b.x - 1, b.y - 1, 2, 1);
+    }
+  }
+}
+
+// -------------------- pickups --------------------
+const pickups = [];
+function spawnPickup(x, y) {
+  pickups.push({ x, y, vy: -280, grav: 700, rot: rand(0, Math.PI * 2), rotV: rand(-8, 8),
+    life: 9, t: 0, type: Math.random() < 0.5 ? 'coin' : (Math.random() < 0.5 ? 'star' : 'gem'),
+    color: choice(['#ffd700', '#ff8', '#f80', '#fdd', '#fcf', '#aff']) });
+}
+function updatePickups(dt) {
+  for (let i = pickups.length - 1; i >= 0; i--) {
+    const p = pickups[i];
+    p.t += dt;
+    p.vy += p.grav * dt;
+    p.y += p.vy * dt;
+    p.rot += p.rotV * dt;
+    if (p.y > GROUND_Y) { p.y = GROUND_Y; p.vy *= -0.42; p.rotV *= 0.7; }
+    if (p.t >= p.life) { pickups.splice(i, 1); continue; }
+    // collect
+    const pl = Game.player;
+    const dx = p.x - pl.x, dy = p.y - (pl.y - 30);
+    if (dx * dx + dy * dy < 42 * 42) {
+      audio.coin();
+      Game.coins++;
+      addParticle('starburst', { x: p.x, y: p.y, vx: 0, vy: -40, life: 0.35, size: 18, color: p.color, grav: 0 });
+      for (let k = 0; k < 6; k++) {
+        addParticle('spark', { x: p.x, y: p.y, vx: rand(-180, 180), vy: rand(-260, -20),
+          life: rand(0.3, 0.6), size: 3, color: p.color, grav: 400 });
+      }
+      pickups.splice(i, 1);
+    }
+  }
+}
+function drawPickups() {
+  for (const p of pickups) {
+    ctx.save();
+    ctx.translate(p.x, p.y);
+    ctx.rotate(p.rot);
+    const flash = Math.floor(p.t * 10) % 2 === 0 ? 0.85 : 1;
+    ctx.globalAlpha = flash;
+    if (p.type === 'coin') {
+      ctx.fillStyle = '#ffd700'; ctx.fillRect(-9, -9, 18, 18);
+      ctx.fillStyle = '#ffef70'; ctx.fillRect(-7, -7, 14, 14);
+      ctx.fillStyle = '#c90'; ctx.fillRect(-3, -5, 6, 10);
+      ctx.fillStyle = '#fff'; ctx.fillRect(-1, -4, 2, 2);
+    } else if (p.type === 'star') {
+      ctx.fillStyle = p.color;
+      for (let a = 0; a < 5; a++) { ctx.rotate(Math.PI * 2 / 5); ctx.fillRect(-2, -12, 4, 12); }
+      ctx.fillStyle = '#fff'; ctx.fillRect(-3, -3, 6, 6);
+    } else { // gem
+      ctx.fillStyle = p.color;
+      ctx.beginPath(); ctx.moveTo(0, -10); ctx.lineTo(8, -2); ctx.lineTo(4, 10);
+      ctx.lineTo(-4, 10); ctx.lineTo(-8, -2); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      ctx.beginPath(); ctx.moveTo(0, -10); ctx.lineTo(8, -2); ctx.lineTo(0, 0); ctx.closePath(); ctx.fill();
+    }
+    ctx.restore();
+    ctx.globalAlpha = 1;
+  }
+}
+
+// -------------------- player --------------------
+class Player {
+  constructor() {
+    this.x = 420; this.y = GROUND_Y;
+    this.vx = 0; this.vy = 0;
+    this.hp = 1000; this.hpMax = 1000;   // 10x enemy durability
+    this.facing = 1;
+    this.grounded = true;
+    this.state = 'idle'; // idle, run, jump, fall, knife, slide, hit, parachute
+    this.animTime = 0;
+    this.ammo = 69; this.ammoMax = 69;
+    this.reloading = false; this.reloadT = 0;
+    this.fireCd = 0;
+    this.knifeT = 0; this.knifeHit = new Set();
+    this.slideT = 0; this.slideCd = 0;
+    this.invuln = 0;
+    this.dead = false;
+    this.parachuteY = 50;
+    this.parachuteT = 0;
+  }
+  update(dt) {
+    this.animTime += dt;
+    if (this.invuln > 0) this.invuln -= dt;
+    if (this.fireCd > 0) this.fireCd -= dt;
+    if (this.slideCd > 0) this.slideCd -= dt;
+
+    // Reload
+    if (this.reloading) {
+      this.reloadT += dt;
+      if (this.reloadT >= 1.2) {
+        this.ammo = this.ammoMax;
+        this.reloading = false; this.reloadT = 0;
+      }
+    }
+
+    // Slide state logic
+    if (this.state === 'slide') {
+      this.slideT += dt;
+      this.x += this.facing * 360 * dt;
+      if (this.slideT >= 0.55) {
+        // Pop-up / jump recovery
+        this.vy = -360;
+        this.state = 'jump';
+        this.grounded = false;
+        audio.jumpSound();
+      }
+    } else if (this.state === 'knife') {
+      this.knifeT += dt;
+      // knife strike window
+      if (this.knifeT > 0.08 && this.knifeT < 0.28) {
+        const reach = 60;
+        for (const e of Game.enemies) {
+          if (e.dead || this.knifeHit.has(e)) continue;
+          const dx = e.x - this.x;
+          if (this.facing * dx > -10 && this.facing * dx < reach &&
+              Math.abs(e.y - this.y) < 40) {
+            this.knifeHit.add(e);
+            audio.knifeHit();
+            e.takeHit(30, this.facing, true);
+            for (let k = 0; k < 18; k++) {
+              addParticle('blood', {
+                x: e.x, y: e.y - 40 + rand(-10, 10),
+                vx: this.facing * rand(60, 360), vy: rand(-260, -60),
+                life: rand(0.5, 0.9), size: 4, color: choice(['#2f2', '#4f4', '#afc', '#7e7']), grav: 700
+              });
+            }
+            Camera.bump(0.3);
+          }
+        }
+      }
+      if (this.knifeT >= 0.42) {
+        this.state = 'idle';
+        this.knifeHit.clear();
+        this.knifeT = 0;
+      }
+    } else {
+      // Horizontal movement
+      const moveLeft = Input.held(['ArrowLeft', 'KeyA']);
+      const moveRight = Input.held(['ArrowRight', 'KeyD']);
+      if (moveLeft && !moveRight) { this.vx = -240; this.facing = -1; }
+      else if (moveRight && !moveLeft) { this.vx = 240; this.facing = 1; }
+      else this.vx = 0;
+
+      this.x += this.vx * dt;
+      this.x = clamp(this.x, 120, W - 120);
+
+      // Jump
+      if (this.grounded && Input.pressed(['Space'])) {
+        this.vy = -620; this.grounded = false;
+        audio.jumpSound();
+      }
+
+      // Slide (must be grounded or fall-start)
+      if (this.slideCd <= 0 && Input.pressed(['ShiftLeft', 'ShiftRight']) && this.grounded) {
+        this.state = 'slide';
+        this.slideT = 0;
+        this.slideCd = 0.8;
+        audio.slideYell();
+        for (let k = 0; k < 10; k++) {
+          addParticle('smoke', {
+            x: this.x - this.facing * 10, y: this.y - 5,
+            vx: -this.facing * rand(40, 140), vy: rand(-50, 10),
+            life: rand(0.4, 0.7), size: rand(6, 12), color: 'rgba(180,160,120,0.8)', grav: 0, drag: 1.2
+          });
+        }
+      }
+
+      // Knife attack
+      if (Input.pressed(['ControlLeft', 'ControlRight', 'KeyQ']) && this.state !== 'knife') {
+        this.state = 'knife';
+        this.knifeT = 0;
+        this.knifeHit.clear();
+        audio.knifeSwing();
+      }
+
+      // Fire
+      if (!this.reloading && Input.held(['KeyX', 'KeyZ', 'KeyJ', 'KeyF', 'KeyK', 'KeyE'])) {
+        if (this.fireCd <= 0 && this.ammo > 0) this.doFire();
+      }
+      // autofire w/ space? space is jump. Let's map autofire to held Z/X/J by default.
+      // Also support: auto fire while not holding slide or knife.
+      if (!this.reloading && this.ammo > 0 && this.fireCd <= 0) {
+        // auto-fire default: the player is always blasting.
+        this.doFire();
+      }
+
+      // Grav + vertical
+      this.vy += 1800 * dt;
+      this.y += this.vy * dt;
+      if (this.y >= GROUND_Y) {
+        this.y = GROUND_Y;
+        if (!this.grounded) {
+          // landing dust
+          for (let k = 0; k < 6; k++) {
+            addParticle('smoke', {
+              x: this.x + rand(-14, 14), y: GROUND_Y - 4,
+              vx: rand(-60, 60), vy: rand(-30, -10),
+              life: rand(0.3, 0.55), size: rand(5, 9), color: 'rgba(180,170,130,0.75)', grav: 0
+            });
+          }
+        }
+        this.vy = 0; this.grounded = true;
+      }
+
+      // Compute state
+      if (!this.grounded) this.state = this.vy < 0 ? 'jump' : 'fall';
+      else if (Math.abs(this.vx) > 10) this.state = 'run';
+      else this.state = 'idle';
+    }
+  }
+  doFire() {
+    this.fireCd = 0.085;
+    this.ammo--;
+    const muzzleX = this.x + this.facing * 48;
+    const muzzleY = this.y - 48;
+    spawnBullet(muzzleX, muzzleY, this.facing * 1700, 0, 'player', 12);
+    audio.rifle();
+    // muzzle flash
+    addParticle('flash', { x: muzzleX, y: muzzleY, life: 0.1, size: 16, color: '#ffe07a', grav: 0 });
+    for (let k = 0; k < 3; k++) {
+      addParticle('spark', {
+        x: muzzleX, y: muzzleY,
+        vx: this.facing * rand(100, 260), vy: rand(-100, 20),
+        life: rand(0.15, 0.3), size: 2, color: choice(['#ff0', '#fa0', '#fff']), grav: 200
+      });
+    }
+    // shell casing
+    addParticle('casing', {
+      x: this.x + this.facing * 14, y: this.y - 54,
+      vx: -this.facing * rand(40, 100), vy: rand(-200, -120),
+      life: 0.7, size: 4, color: '#fd8', grav: 900
+    });
+    Camera.bump(0.04);
+    // ammo UI feedback vs shake handled in HUD
+    if (this.ammo <= 0) {
+      this.reloading = true;
+      this.reloadT = 0;
+      audio.reload();
+    }
+  }
+  takeHit(dmg) {
+    if (this.invuln > 0 || this.dead) return;
+    this.hp -= dmg;
+    this.invuln = 0.5;
+    audio.hitPlayer();
+    Camera.bump(0.25);
+    for (let k = 0; k < 12; k++) {
+      addParticle('blood', {
+        x: this.x, y: this.y - 40,
+        vx: rand(-200, 200), vy: rand(-300, -80),
+        life: rand(0.4, 0.7), size: 3, color: choice(['#c33', '#f55', '#e22']), grav: 700
+      });
+    }
+    if (this.hp <= 0) this.dead = true;
+  }
+}
+
+// -------------------- enemy --------------------
+class Enemy {
+  constructor(x, y, facing, tier = 1) {
+    this.x = x; this.y = y;
+    this.vx = 0; this.vy = 0;
+    this.hp = 24 + Math.random() * 8;
+    this.facing = facing;
+    this.state = 'run'; // run, shoot, die, hit
+    this.animTime = Math.random() * 5;
+    this.dead = false;
+    this.dyingT = 0; this.dieBlink = 0;
+    this.shootCd = rand(0.8, 2.3);
+    this.attackCd = 0;
+    this.hitFlash = 0;
+    this.grounded = true;
+    this.voiceCd = rand(2, 6);
+    this.tier = tier;
+    // palette variation
+    this.palette = choice([
+      { uni: '#4a5a3a', pants: '#2a2a24', helmet: '#696f5a' },
+      { uni: '#5a4a3a', pants: '#302824', helmet: '#706b58' },
+      { uni: '#3a4a5a', pants: '#2a2830', helmet: '#60686e' },
+    ]);
+  }
+  update(dt) {
+    this.animTime += dt;
+    if (this.hitFlash > 0) this.hitFlash -= dt;
+    if (this.dead) {
+      this.dyingT += dt;
+      this.dieBlink += dt;
+      this.vy += 1400 * dt;
+      this.y += this.vy * dt;
+      this.x += this.vx * dt;
+      if (this.y >= GROUND_Y) { this.y = GROUND_Y; this.vy *= -0.3; this.vx *= 0.5; }
+      return;
+    }
+    if (this.attackCd > 0) this.attackCd -= dt;
+    if (this.shootCd > 0) this.shootCd -= dt;
+    if (this.voiceCd > 0) this.voiceCd -= dt;
+    else {
+      if (Math.random() < 0.5) audio.enemyYell(Math.random() < 0.5 ? 'attack' : 'swear');
+      this.voiceCd = rand(3.5, 9);
+    }
+    // AI: run toward player while maintaining distance, occasional shooting
+    const p = Game.player;
+    const dx = p.x - this.x;
+    const desiredDist = 220 + (this.tier * 30);
+    const absDx = Math.abs(dx);
+    this.facing = dx >= 0 ? 1 : -1;
+    if (absDx > desiredDist + 40) {
+      this.vx = this.facing * 240; // same speed as player
+    } else if (absDx < desiredDist - 40) {
+      this.vx = -this.facing * 180;
+    } else {
+      this.vx = 0;
+    }
+    this.x += this.vx * dt;
+    // gravity
+    this.vy += 1800 * dt; this.y += this.vy * dt;
+    if (this.y >= GROUND_Y) { this.y = GROUND_Y; this.vy = 0; this.grounded = true; }
+    // Shoot
+    if (this.shootCd <= 0 && absDx < 700 && absDx > 60) {
+      const mx = this.x + this.facing * 26, my = this.y - 46;
+      spawnBullet(mx, my, this.facing * 620, rand(-30, 30), 'enemy', 35);
+      audio.enemyShoot();
+      addParticle('flash', { x: mx, y: my, life: 0.08, size: 10, color: '#f66', grav: 0 });
+      for (let k = 0; k < 2; k++) {
+        addParticle('spark', {
+          x: mx, y: my, vx: this.facing * rand(80, 200), vy: rand(-60, 30),
+          life: 0.2, size: 2, color: '#fa8', grav: 300
+        });
+      }
+      this.shootCd = rand(1.3, 2.6);
+    }
+    // state
+    if (Math.abs(this.vx) > 10) this.state = 'run';
+    else this.state = 'aim';
+  }
+  takeHit(dmg, dir, isKnife = false) {
+    if (this.dead) return;
+    this.hp -= dmg;
+    this.hitFlash = 0.1;
+    audio.hitFlesh();
+    if (Math.random() < 0.22 && !isKnife) audio.enemyYell('swear');
+    // spray
+    for (let k = 0; k < 8; k++) {
+      addParticle('blood', {
+        x: this.x, y: this.y - 40 + rand(-10, 10),
+        vx: dir * rand(80, 260), vy: rand(-260, -60),
+        life: rand(0.45, 0.8), size: 3, color: choice(['#2f2', '#4f4', '#afc', '#7e7']), grav: 700
+      });
+    }
+    if (this.hp <= 0) this.die(dir);
+  }
+  die(dir) {
+    this.dead = true;
+    this.vx = dir * 260;
+    this.vy = -320;
+    this.state = 'die';
+    audio.enemyYell('die');
+    Camera.bump(0.08);
+    // burst
+    for (let k = 0; k < 22; k++) {
+      addParticle('blood', {
+        x: this.x, y: this.y - 30,
+        vx: rand(-380, 380), vy: rand(-420, -100),
+        life: rand(0.5, 1.1), size: 4, color: choice(['#2f2', '#4f4', '#afc', '#7e7', '#5d5']), grav: 800
+      });
+    }
+    if (Math.random() < 0.45) spawnPickup(this.x, this.y - 40);
+    Game.onEnemyKill(this.x, this.y);
+  }
+}
+
+// -------------------- environment (parallax) --------------------
+const env = {
+  scroll: 0, // primary scroll value (pixels/sec * time)
+  cloudLayer: [], mountainLayer: [], midBuildings: [], farStars: [],
+  trainCarOffset: 0, trainScroll: 0,
+  debris: [],
+};
+function initEnv() {
+  env.farStars.length = 0;
+  for (let i = 0; i < 40; i++) env.farStars.push({ x: Math.random() * 2000, y: Math.random() * 220, s: Math.random() * 1.5 + 0.5 });
+  env.cloudLayer.length = 0;
+  for (let i = 0; i < 20; i++) env.cloudLayer.push({ x: Math.random() * 2000, y: 40 + Math.random() * 160, s: 0.4 + Math.random() * 1.6 });
+  env.mountainLayer.length = 0;
+  let mx = 0;
+  while (mx < 2000) {
+    const w = 220 + Math.random() * 300;
+    env.mountainLayer.push({ x: mx, w, h: 130 + Math.random() * 110 });
+    mx += w - 60;
+  }
+  env.midBuildings.length = 0;
+  let bx = 0;
+  while (bx < 2000) {
+    const w = 80 + Math.random() * 130;
+    env.midBuildings.push({ x: bx, w, h: 60 + Math.random() * 140, c: randi(0, 4), win: Math.random() < 0.6 });
+    bx += w + 12;
+  }
+}
+initEnv();
+
+function drawSky() {
+  const g = ctx.createLinearGradient(0, 0, 0, 400);
+  g.addColorStop(0, '#2a1436');
+  g.addColorStop(0.35, '#6a2042');
+  g.addColorStop(0.7, '#c74a2f');
+  g.addColorStop(1, '#f7b84d');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, 400);
+
+  // sun
+  const sx = 980, sy = 260;
+  const rg = ctx.createRadialGradient(sx, sy, 0, sx, sy, 180);
+  rg.addColorStop(0, 'rgba(255,255,220,0.9)');
+  rg.addColorStop(0.3, 'rgba(255,210,140,0.7)');
+  rg.addColorStop(1, 'rgba(255,80,40,0)');
+  ctx.fillStyle = rg;
+  ctx.fillRect(sx - 200, sy - 200, 400, 400);
+  ctx.fillStyle = '#ffe7aa';
+  ctx.beginPath(); ctx.arc(sx, sy, 62, 0, Math.PI * 2); ctx.fill();
+
+  // stars / specks
+  ctx.fillStyle = 'rgba(255,255,220,0.6)';
+  for (const s of env.farStars) {
+    const x = (s.x - env.scroll * 0.02) % 2000;
+    ctx.fillRect((x + 2000) % 2000, s.y, s.s, s.s);
+  }
+}
+function drawFarMountains() {
+  // backlayer - dark purple mountains
+  for (const m of env.mountainLayer) {
+    const x = ((m.x - env.scroll * 0.08) % 2000 + 2000) % 2000 - 400;
+    const h = m.h;
+    ctx.fillStyle = '#402850';
+    ctx.beginPath();
+    ctx.moveTo(x, 400);
+    ctx.lineTo(x + m.w * 0.4, 400 - h);
+    ctx.lineTo(x + m.w * 0.6, 400 - h * 0.8);
+    ctx.lineTo(x + m.w, 400);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#583565';
+    ctx.fillRect(x, 398, m.w, 20);
+  }
+  // hills
+  ctx.fillStyle = '#3d2c4a';
+  ctx.beginPath();
+  ctx.moveTo(0, 420);
+  for (let hx = 0; hx <= W; hx += 40) {
+    ctx.lineTo(hx, 420 - Math.sin((hx + env.scroll * 0.12) * 0.02) * 14 - 10);
+  }
+  ctx.lineTo(W, 500); ctx.lineTo(0, 500); ctx.closePath(); ctx.fill();
+}
+function drawMidBuildings() {
+  // industrial silhouettes
+  const palette = [
+    ['#221a26', '#1a141e'],
+    ['#1e2436', '#131729'],
+    ['#26201e', '#1a1614'],
+    ['#1a1a2a', '#101020'],
+  ];
+  for (const b of env.midBuildings) {
+    const x = ((b.x - env.scroll * 0.3) % 2000 + 2000) % 2000 - 300;
+    const p = palette[b.c];
+    ctx.fillStyle = p[0];
+    ctx.fillRect(x, 460 - b.h, b.w, b.h);
+    ctx.fillStyle = p[1];
+    ctx.fillRect(x, 460 - b.h, 4, b.h);
+    ctx.fillRect(x + b.w - 4, 460 - b.h, 4, b.h);
+    if (b.win) {
+      ctx.fillStyle = '#ffbf30';
+      for (let wy = 460 - b.h + 16; wy < 460 - 10; wy += 14) {
+        for (let wx = x + 8; wx < x + b.w - 10; wx += 12) {
+          if (((wx + wy) ^ ((b.x | 0))) & 3) continue;
+          ctx.globalAlpha = Math.random() < 0.3 ? 0.2 : 0.85;
+          ctx.fillRect(wx, wy, 5, 5);
+        }
+      }
+      ctx.globalAlpha = 1;
+    }
+  }
+  // smokestacks
+  ctx.fillStyle = '#1a1620';
+  for (let i = 0; i < 8; i++) {
+    const x = (((300 + i * 280) - env.scroll * 0.3) % 2000 + 2000) % 2000 - 300;
+    ctx.fillRect(x, 340, 22, 120);
+    ctx.fillRect(x - 3, 340, 28, 10);
+  }
+  // ground horizon
+  ctx.fillStyle = '#0e0914';
+  ctx.fillRect(0, 460, W, 60);
+}
+function drawForegroundTrain() {
+  // Train: cars scroll fast (foreground)
+  const carW = 260;
+  const totalCars = Math.ceil(W / carW) + 2;
+  const offsetScroll = env.scroll * 1;
+  const offset = -((offsetScroll) % carW);
+  for (let i = -1; i < totalCars; i++) {
+    const cx = offset + i * carW;
+    drawTrainCar(cx, TRAIN_TOP);
+  }
+  // couplers and wheels extra
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 710, W, 10);
+}
+function drawTrainCar(cx, top) {
+  // top deck (where player stands)
+  ctx.fillStyle = '#3a2a1f';
+  ctx.fillRect(cx, top, 260, 16);
+  ctx.fillStyle = '#5a3a22';
+  ctx.fillRect(cx, top + 16, 260, 6);
+  // car body
+  ctx.fillStyle = '#6a4428';
+  ctx.fillRect(cx + 4, top + 22, 252, 80);
+  // wooden planks
+  ctx.fillStyle = '#5a3820';
+  for (let p = 0; p < 10; p++) ctx.fillRect(cx + 8 + p * 25, top + 24, 2, 76);
+  // edges
+  ctx.fillStyle = '#2a1a0e';
+  ctx.fillRect(cx, top + 22, 6, 80);
+  ctx.fillRect(cx + 254, top + 22, 6, 80);
+  ctx.fillRect(cx, top + 100, 260, 4);
+  // windows (painted-over)
+  ctx.fillStyle = '#22161a';
+  for (let w = 0; w < 4; w++) ctx.fillRect(cx + 24 + w * 60, top + 36, 36, 36);
+  ctx.fillStyle = '#442a33';
+  for (let w = 0; w < 4; w++) ctx.fillRect(cx + 26 + w * 60, top + 38, 32, 32);
+  ctx.fillStyle = '#6a4a48';
+  for (let w = 0; w < 4; w++) ctx.fillRect(cx + 30 + w * 60, top + 42, 10, 10);
+  // bolts
+  ctx.fillStyle = '#1c120a';
+  for (let b = 0; b < 10; b++) { ctx.fillRect(cx + 12 + b * 26, top + 24, 3, 3); ctx.fillRect(cx + 12 + b * 26, top + 96, 3, 3); }
+  // undercarriage
+  ctx.fillStyle = '#1f1612';
+  ctx.fillRect(cx, top + 104, 260, 16);
+  // wheels
+  ctx.fillStyle = '#111';
+  ctx.beginPath(); ctx.arc(cx + 50, top + 130, 24, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(cx + 130, top + 130, 24, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(cx + 210, top + 130, 24, 0, Math.PI * 2); ctx.fill();
+  const wrot = (env.scroll / 24);
+  ctx.strokeStyle = '#666'; ctx.lineWidth = 2;
+  [50, 130, 210].forEach(wx => {
+    ctx.save(); ctx.translate(cx + wx, top + 130); ctx.rotate(wrot);
+    ctx.beginPath(); ctx.moveTo(-20, 0); ctx.lineTo(20, 0);
+    ctx.moveTo(0, -20); ctx.lineTo(0, 20); ctx.stroke();
+    ctx.restore();
+  });
+  // rail bed
+  ctx.fillStyle = '#4a2a1a';
+  ctx.fillRect(cx, top + 158, 260, 6);
+  ctx.fillStyle = '#2a1a10';
+  for (let tie = 0; tie < 14; tie++) ctx.fillRect(cx + tie * 19, top + 160, 14, 4);
+  // sparks from wheels occasionally
+  if (Math.random() < 0.35) {
+    addParticle('spark', {
+      x: cx + 50 + Math.random() * 160, y: top + 140,
+      vx: rand(-80, 80), vy: rand(-80, 20),
+      life: rand(0.15, 0.35), size: 2, color: choice(['#f90', '#fc0', '#fff']), grav: 200
+    });
+  }
+  // Coupling between cars
+  ctx.fillStyle = '#1a100a';
+  ctx.fillRect(cx + 258, top + 60, 8, 20);
+}
+
+function drawHorizonSmoke() {
+  // smoke stream from front of train
+  const t = Game.clock;
+  ctx.globalAlpha = 0.6;
+  for (let i = 0; i < 40; i++) {
+    const age = ((t * 30 + i * 13) % 40) / 40;
+    const px = W - 80 - age * 600 + Math.sin(i * 0.3 + t) * 10;
+    const py = 380 - age * 90 - Math.sin(age * 3 + i) * 6;
+    ctx.fillStyle = `rgba(${120 - age * 40}, ${120 - age * 40}, ${130 - age * 40}, ${1 - age})`;
+    ctx.beginPath(); ctx.arc(px, py, 10 + age * 22, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+// -------------------- draw player sprite --------------------
+function drawPlayer(p) {
+  const invFlash = p.invuln > 0 && Math.floor(p.invuln * 18) % 2 === 0;
+  ctx.save();
+  ctx.translate(p.x, p.y);
+  if (p.facing === -1) ctx.scale(-1, 1);
+  if (invFlash) { ctx.globalAlpha = 0.55; }
+
+  const skin = '#5a3820';
+  const skin2 = '#3f2614';
+  const band = '#c21818';
+  const vest = '#3e5a2c';
+  const vest2 = '#2e4422';
+  const pants = '#7a5a32';
+  const pants2 = '#5a3f22';
+  const boot = '#181818';
+  const gun = '#2a2a2a';
+  const gunDark = '#0a0a0a';
+
+  const t = p.animTime;
+
+  if (p.state === 'slide') {
+    // Diving slide pose (horizontal body)
+    ctx.fillStyle = pants;
+    ctx.fillRect(-44, -18, 38, 14);
+    ctx.fillStyle = pants2;
+    ctx.fillRect(-44, -8, 38, 4);
+    ctx.fillStyle = boot;
+    ctx.fillRect(-52, -18, 10, 14);
+    ctx.fillStyle = vest;
+    ctx.fillRect(-6, -22, 28, 18);
+    ctx.fillStyle = vest2;
+    ctx.fillRect(-6, -8, 28, 4);
+    ctx.fillStyle = skin;
+    ctx.fillRect(22, -24, 14, 14); // head
+    ctx.fillStyle = band;
+    ctx.fillRect(22, -20, 14, 4);
+    ctx.fillStyle = skin;
+    ctx.fillRect(18, -12, 10, 6); // arm
+    ctx.fillStyle = gun;
+    ctx.fillRect(28, -16, 22, 5);
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(34, -22, 2, 2); // eye
+    // dust stream trailing
+    ctx.fillStyle = 'rgba(200,180,130,0.6)';
+    ctx.fillRect(-54, -4, 20, 3);
+    ctx.restore();
+    return;
+  }
+
+  if (p.state === 'parachute') {
+    // Parachute visual
+    ctx.fillStyle = band; // canopy red
+    ctx.beginPath();
+    ctx.arc(0, -140, 60, Math.PI, 0); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#8a0e0e';
+    for (let i = -2; i <= 2; i++) {
+      ctx.fillRect(i * 24, -140, 8, 20);
+    }
+    // strings
+    ctx.strokeStyle = '#f5f5f5'; ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (let i = -2; i <= 2; i++) {
+      ctx.moveTo(i * 24, -120);
+      ctx.lineTo(i * 4, -74);
+    }
+    ctx.stroke();
+    // Body
+    ctx.fillStyle = skin; ctx.fillRect(-7, -68, 14, 14);
+    ctx.fillStyle = band; ctx.fillRect(-8, -60, 16, 4);
+    ctx.fillStyle = vest; ctx.fillRect(-10, -54, 22, 22);
+    ctx.fillStyle = vest2; ctx.fillRect(-10, -36, 22, 4);
+    ctx.fillStyle = skin; ctx.fillRect(-14, -48, 6, 14); ctx.fillRect(12, -48, 6, 14);
+    ctx.fillStyle = pants; ctx.fillRect(-8, -28, 8, 22); ctx.fillRect(2, -28, 8, 22);
+    ctx.fillStyle = boot; ctx.fillRect(-9, -8, 10, 6); ctx.fillRect(1, -8, 10, 6);
+    // Eye
+    ctx.fillStyle = '#fff'; ctx.fillRect(2, -64, 3, 3);
+    ctx.fillStyle = '#000'; ctx.fillRect(4, -64, 2, 3);
+    ctx.restore();
+    return;
+  }
+
+  // Run leg cycle
+  let lLegY = 0, rLegY = 0, bodyBob = 0;
+  if (p.state === 'run') {
+    lLegY = Math.sin(t * 20) * 8;
+    rLegY = Math.sin(t * 20 + Math.PI) * 8;
+    bodyBob = Math.abs(Math.sin(t * 10)) * 2;
+  } else if (p.state === 'jump') { lLegY = -4; rLegY = 4; bodyBob = -2; }
+  else if (p.state === 'fall') { lLegY = 4; rLegY = -2; bodyBob = 2; }
+
+  // Head
+  ctx.fillStyle = skin;
+  ctx.fillRect(-7, -68 + bodyBob, 14, 14);
+  ctx.fillStyle = skin2;
+  ctx.fillRect(-7, -56 + bodyBob, 14, 2);
+  // Eye
+  ctx.fillStyle = '#fff'; ctx.fillRect(2, -62 + bodyBob, 3, 3);
+  ctx.fillStyle = '#000'; ctx.fillRect(4, -62 + bodyBob, 2, 2);
+  // Headband
+  ctx.fillStyle = band; ctx.fillRect(-8, -60 + bodyBob, 16, 4);
+  // Tail
+  ctx.fillRect(-12, -58 + bodyBob, 4, 3);
+  ctx.fillRect(-15, -55 + bodyBob, 3, 3);
+  // Vest
+  ctx.fillStyle = vest; ctx.fillRect(-11, -54 + bodyBob, 22, 26);
+  ctx.fillStyle = vest2; ctx.fillRect(-11, -42 + bodyBob, 22, 4);
+  // Chest strap
+  ctx.fillStyle = '#1c2018'; ctx.fillRect(-9, -44 + bodyBob, 20, 2);
+  // Grenades on strap
+  ctx.fillStyle = '#2a2a1a'; ctx.fillRect(-8, -38 + bodyBob, 5, 5); ctx.fillRect(-1, -38 + bodyBob, 5, 5);
+  // Muscular arms
+  ctx.fillStyle = skin; ctx.fillRect(-15, -50 + bodyBob, 6, 20);
+  ctx.fillStyle = skin2; ctx.fillRect(-15, -34 + bodyBob, 6, 2);
+
+  // Gun + firing arm
+  if (p.state !== 'knife') {
+    ctx.fillStyle = skin; ctx.fillRect(11, -50 + bodyBob, 10, 8);
+    // gun body
+    ctx.fillStyle = gun; ctx.fillRect(16, -50 + bodyBob, 30, 7);
+    ctx.fillStyle = gunDark; ctx.fillRect(42, -48 + bodyBob, 6, 3);
+    // scope
+    ctx.fillStyle = '#111'; ctx.fillRect(24, -54 + bodyBob, 8, 4);
+    // grip
+    ctx.fillStyle = '#5a3a20'; ctx.fillRect(18, -42 + bodyBob, 5, 6);
+    // stock
+    ctx.fillStyle = '#5a3a20'; ctx.fillRect(8, -48 + bodyBob, 8, 4);
+    // mag
+    ctx.fillStyle = '#333'; ctx.fillRect(22, -42 + bodyBob, 7, 10);
+    // muzzle flash (every other frame if firing)
+    if (p.ammo < p.ammoMax && p.fireCd > 0.04) {
+      ctx.fillStyle = '#ffdd60';
+      ctx.beginPath(); ctx.moveTo(48, -46 + bodyBob); ctx.lineTo(58, -50 + bodyBob); ctx.lineTo(62, -46 + bodyBob); ctx.lineTo(58, -42 + bodyBob); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.beginPath(); ctx.moveTo(48, -46 + bodyBob); ctx.lineTo(54, -48 + bodyBob); ctx.lineTo(56, -46 + bodyBob); ctx.lineTo(54, -44 + bodyBob); ctx.closePath(); ctx.fill();
+    }
+  }
+  // Knife
+  if (p.state === 'knife') {
+    const kp = p.knifeT / 0.42; // 0..1
+    // slash arc
+    const angle = -0.9 + kp * 1.8;
+    ctx.fillStyle = skin; ctx.fillRect(11, -50 + bodyBob, 10, 8);
+    ctx.save();
+    ctx.translate(16, -46 + bodyBob);
+    ctx.rotate(angle);
+    ctx.fillStyle = '#e8e8ee';
+    ctx.fillRect(0, -2, 34, 4);
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(28, -3, 6, 6);
+    ctx.fillStyle = '#3a2418';
+    ctx.fillRect(-6, -3, 6, 6);
+    ctx.restore();
+    // swoosh effect
+    ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(16, -46 + bodyBob, 38, -0.9 + Math.max(0, kp - 0.3) * 2, -0.9 + kp * 1.8);
+    ctx.stroke();
+  }
+
+  // Legs
+  ctx.fillStyle = pants; ctx.fillRect(-8, -28, 8, 18 + lLegY);
+  ctx.fillStyle = pants2; ctx.fillRect(-8, -12, 8, 4 + lLegY);
+  ctx.fillStyle = pants; ctx.fillRect(2, -28, 8, 18 + rLegY);
+  ctx.fillStyle = pants2; ctx.fillRect(2, -12, 8, 4 + rLegY);
+  // Boots
+  ctx.fillStyle = boot;
+  ctx.fillRect(-9, -10 + lLegY, 11, 6);
+  ctx.fillRect(1, -10 + rLegY, 11, 6);
+  ctx.fillStyle = '#4a3018';
+  ctx.fillRect(-9, -4 + lLegY, 11, 2);
+  ctx.fillRect(1, -4 + rLegY, 11, 2);
+
+  ctx.restore();
+  ctx.globalAlpha = 1;
+}
+
+// -------------------- draw enemy --------------------
+function drawEnemy(e) {
+  ctx.save();
+  ctx.translate(e.x, e.y);
+  if (e.facing === -1) ctx.scale(-1, 1);
+  if (e.hitFlash > 0) ctx.globalCompositeOperation = 'lighter';
+  if (e.dead) {
+    const blink = Math.floor(e.dyingT * 15) % 2 === 0;
+    if (blink && e.dyingT < 0.6) ctx.globalAlpha = 0.4;
+    if (e.dyingT > 1.0) ctx.globalAlpha = Math.max(0, 1 - (e.dyingT - 1) / 0.8);
+    // fallen pose
+    const tilt = Math.min(Math.PI / 2, e.dyingT * 4);
+    ctx.rotate(tilt);
+    ctx.fillStyle = e.palette.uni;
+    ctx.fillRect(-10, -60, 22, 32);
+    ctx.fillStyle = e.palette.pants;
+    ctx.fillRect(-10, -28, 22, 20);
+    ctx.fillStyle = '#f8c9a8';
+    ctx.fillRect(-6, -74, 14, 14);
+    ctx.fillStyle = e.palette.helmet;
+    ctx.fillRect(-7, -78, 16, 8);
+    // green blood spread
+    ctx.fillStyle = 'rgba(50, 200, 50, 0.8)';
+    ctx.fillRect(-18, -4, 40, 4);
+    ctx.restore();
+    if (e.dyingT >= 1.8) e.markedForDelete = true;
+    return;
+  }
+  const t = e.animTime;
+  let lLegY = 0, rLegY = 0, bodyBob = 0;
+  if (e.state === 'run' && Math.abs(e.vx) > 10) {
+    lLegY = Math.sin(t * 18) * 6;
+    rLegY = Math.sin(t * 18 + Math.PI) * 6;
+    bodyBob = Math.abs(Math.sin(t * 9)) * 2;
+  }
+  // head (alien inside - ears slightly pointed)
+  ctx.fillStyle = '#f5c4a0';
+  ctx.fillRect(-6, -74 + bodyBob, 14, 14);
+  ctx.fillStyle = '#d4a080';
+  ctx.fillRect(-6, -62 + bodyBob, 14, 2);
+  // subtle alien ears (pointed)
+  ctx.fillStyle = '#e5b090';
+  ctx.fillRect(-7, -70 + bodyBob, 2, 3);
+  ctx.fillRect(7, -70 + bodyBob, 2, 3);
+  // eye with green tinge (alien hint)
+  ctx.fillStyle = '#afe';
+  ctx.fillRect(3, -68 + bodyBob, 3, 3);
+  ctx.fillStyle = '#000';
+  ctx.fillRect(4, -67 + bodyBob, 2, 2);
+  // helmet
+  ctx.fillStyle = e.palette.helmet;
+  ctx.fillRect(-8, -78 + bodyBob, 18, 6);
+  ctx.fillRect(-8, -72 + bodyBob, 18, 3);
+  ctx.fillStyle = '#555';
+  ctx.fillRect(6, -76 + bodyBob, 2, 4); // side insignia
+  // uniform
+  ctx.fillStyle = e.palette.uni;
+  ctx.fillRect(-11, -58 + bodyBob, 22, 24);
+  ctx.fillStyle = '#2a2a1a';
+  ctx.fillRect(-11, -46 + bodyBob, 22, 2);
+  // arm + rifle
+  ctx.fillStyle = '#f5c4a0';
+  ctx.fillRect(10, -52 + bodyBob, 8, 14);
+  ctx.fillStyle = '#222';
+  ctx.fillRect(14, -50 + bodyBob, 22, 5);
+  ctx.fillStyle = '#111';
+  ctx.fillRect(34, -49 + bodyBob, 4, 3);
+  ctx.fillStyle = '#5a3a20';
+  ctx.fillRect(12, -42 + bodyBob, 4, 7);
+  // back arm
+  ctx.fillStyle = '#f5c4a0';
+  ctx.fillRect(-14, -52 + bodyBob, 6, 14);
+  // pants
+  ctx.fillStyle = e.palette.pants;
+  ctx.fillRect(-8, -34, 7, 16 + lLegY);
+  ctx.fillRect(1, -34, 7, 16 + rLegY);
+  // boots
+  ctx.fillStyle = '#101014';
+  ctx.fillRect(-9, -18 + lLegY, 9, 6);
+  ctx.fillRect(1, -18 + rLegY, 9, 6);
+  ctx.restore();
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = 'source-over';
+}
+
+// -------------------- game --------------------
+const Game = {
+  state: 'INTRO',   // INTRO | COUNTDOWN | PLAYING | GAMEOVER_BLACK | GAMEOVER_REVEAL | WIN_WHITE | WIN_REVEAL
+  player: null, enemies: [],
+  introSeq: [], introFloat: 0,
+  countdownTimer: 5, countdownNum: 5,
+  introClouds: [],
+  clock: 0,
+  playTime: 0,
+  spawnTimer: 0,
+  comboCount: 0, comboTimer: 0,
+  gameoverKeys: 0, winKeys: 0,
+  coins: 0,
+  announceEl: document.getElementById('announce'),
+  comboEl: document.getElementById('combo-counter'),
+  hpFillEl: document.getElementById('hp-fill'),
+  ammoEl: document.getElementById('ammo-value'),
+  progFillEl: document.getElementById('progress-fill'),
+  progIconEl: document.getElementById('progress-icon'),
+  hudEl: document.getElementById('hud'),
+  introEl: document.getElementById('intro'),
+  countdownEl: document.getElementById('countdown'),
+  countdownSubEl: document.getElementById('countdown-sub'),
+
+  init() {
+    this.player = new Player();
+    this.player.state = 'parachute';
+    this.enemies = [];
+    // stars/clouds for intro
+    this.introClouds = [];
+    for (let i = 0; i < 18; i++) this.introClouds.push({
+      x: Math.random() * W, y: Math.random() * H, s: 0.3 + Math.random() * 1.2,
+      vy: 40 + Math.random() * 80
+    });
+  },
+  startCountdown() {
+    this.state = 'COUNTDOWN';
+    this.countdownTimer = 5;
+    this.countdownNum = 5;
+    this.countdownEl.style.display = 'flex';
+    this.countdownSubEl.style.display = 'block';
+    this.introEl.style.display = 'none';
+    this.countdownEl.textContent = '5';
+  },
+  startPlaying() {
+    this.state = 'PLAYING';
+    this.countdownEl.style.display = 'none';
+    this.countdownSubEl.style.display = 'none';
+    this.player = new Player();
+    this.enemies = [];
+    bullets.length = 0; pickups.length = 0; particles.length = 0;
+    this.playTime = 0; this.spawnTimer = 0;
+    this.comboCount = 0; this.comboTimer = 0;
+    Camera.bump(0.5);
+    audio.landThud();
+    for (let k = 0; k < 24; k++) {
+      addParticle('smoke', {
+        x: this.player.x + rand(-60, 60), y: GROUND_Y - 5,
+        vx: rand(-160, 160), vy: rand(-180, -40),
+        life: rand(0.5, 1), size: rand(8, 18), color: 'rgba(200,180,130,0.8)', grav: 0
+      });
+    }
+    // ensure initial enemies
+    this.spawnEnemy(-1); this.spawnEnemy(1); this.spawnEnemy(1);
+    audio.startMusic();
+  },
+  spawnEnemy(side) {
+    const x = side < 0 ? rand(-60, 80) : rand(W - 80, W + 60);
+    const facing = side < 0 ? 1 : -1;
+    const e = new Enemy(x, GROUND_Y, facing, 1);
+    this.enemies.push(e);
+  },
+  onEnemyKill(ex, ey) {
+    this.comboCount += 1;
+    this.comboTimer = 2.0;
+    this.comboEl.textContent = 'COMBO x' + this.comboCount;
+    this.comboEl.classList.add('show');
+    if (this.comboCount >= 3) {
+      this.triggerAnnouncer();
+      this.comboCount = 0;
+    }
+  },
+  triggerAnnouncer() {
+    const phrases = [
+      'ANNIHILATION!', 'DEVASTATION!', 'MAYHEM!', 'OVERKILL!', 'SLOBBERIZED!',
+      'CARNAGE!', 'TRIPLE SLOB!', 'DECIMATION!', 'HEADSHOT SUPREME!', 'SAVAGERY!',
+      'BLOODBATH!', 'MERCILESS!', 'METAL RAIN!', 'PANDEMONIUM!'
+    ];
+    const phrase = choice(phrases);
+    audio.announcer(phrase);
+    this.announceEl.textContent = phrase;
+    this.announceEl.style.opacity = '1';
+    this.announceEl.style.transform = 'translate(-50%, -50%) scale(1)';
+    this.announceEl.style.transition = 'none';
+    // wiggle via quick scale animation
+    setTimeout(() => {
+      this.announceEl.style.transition = 'opacity 0.6s ease-out, transform 1.4s ease-out';
+      this.announceEl.style.opacity = '0';
+      this.announceEl.style.transform = 'translate(-50%, -50%) scale(1.3)';
+    }, 1500);
+    Camera.bump(0.4);
+  },
+  doGameOver() {
+    this.state = 'GAMEOVER_BLACK';
+    this.gameoverKeys = 0;
+    audio.stopMusic();
+    // create black overlay
+    const div = document.createElement('div');
+    div.id = 'gameover-black';
+    div.className = 'gameover-black';
+    document.getElementById('stage').appendChild(div);
+  },
+  revealGameOver() {
+    this.state = 'GAMEOVER_REVEAL';
+    document.getElementById('gameover-black').remove();
+    const div = document.createElement('div');
+    div.className = 'gameover-reveal';
+    div.innerHTML = '<div class="gameover-text">LOSER</div><div class="gameover-sub">If you dare, metal jacket&hellip; (reload to retry)</div>';
+    div.id = 'gameover-reveal';
+    document.getElementById('stage').appendChild(div);
+    audio.siren();
+  },
+  doWin() {
+    this.state = 'WIN_WHITE';
+    this.winKeys = 0;
+    audio.stopMusic();
+    const div = document.createElement('div');
+    div.id = 'win-white';
+    div.className = 'win-white';
+    document.getElementById('stage').appendChild(div);
+  },
+  revealWin() {
+    this.state = 'WIN_REVEAL';
+    document.getElementById('win-white').remove();
+    const div = document.createElement('div');
+    div.className = 'win-reveal';
+    div.innerHTML = '<div class="win-text">LOSER</div>' +
+      '<div class="win-sub">The "Double FREE CREDIT Slob&trade;" function was never implemented. ' +
+      'Reload the browser to start again. You magnificent slob.</div>';
+    div.id = 'win-reveal';
+    document.getElementById('stage').appendChild(div);
+    audio.siren();
+  },
+  onAnyKey(code) {
+    // audio gating - first user interaction initializes audio
+    if (!audio.ready) {
+      audio.init();
+      audio.startMusic();
+      const h = document.getElementById('audio-hint');
+      if (h) h.style.display = 'none';
+    }
+    if (this.state === 'INTRO') {
+      const step = this.introSeq.length;
+      if (step === 0 && (code === 'ArrowLeft' || code === 'KeyA')) { this.introSeq.push(code); document.getElementById('step1').classList.add('done'); audio.coin(); }
+      else if (step === 1 && (code === 'ArrowRight' || code === 'KeyD')) { this.introSeq.push(code); document.getElementById('step2').classList.add('done'); audio.coin(); }
+      else if (step === 2 && code === 'Space') { this.introSeq.push(code); document.getElementById('step3').classList.add('done'); audio.coin();
+        setTimeout(() => this.startCountdown(), 500);
+      } else if (!['ArrowLeft', 'KeyA', 'ArrowRight', 'KeyD', 'Space'].includes(code)) {
+        // wrong key - maybe blink a "NO COINS" vibe
+      }
+    } else if (this.state === 'GAMEOVER_BLACK') {
+      this.gameoverKeys++;
+      if (this.gameoverKeys >= 6) this.revealGameOver();
+    } else if (this.state === 'WIN_WHITE') {
+      this.winKeys++;
+      if (this.winKeys >= 6) this.revealWin();
+    }
+  }
+};
+
+// -------------------- update / render based on state --------------------
+function updateIntro(dt) {
+  Game.introFloat += dt;
+  // animate player parachute Y (floating)
+  const p = Game.player;
+  p.parachuteT += dt;
+  p.y = 200 + Math.sin(p.parachuteT * 1.3) * 16;
+  p.x = W / 2 + Math.sin(p.parachuteT * 0.7) * 30;
+  p.animTime += dt;
+  // clouds
+  for (const c of Game.introClouds) {
+    c.y += c.vy * dt;
+    if (c.y > H + 40) { c.y = -40; c.x = Math.random() * W; }
+  }
+}
+function renderIntro() {
+  // sky gradient (night parachute drop)
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, '#10152c');
+  g.addColorStop(0.5, '#2a2040');
+  g.addColorStop(1, '#6a2042');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  // stars
+  ctx.fillStyle = '#fff';
+  for (let i = 0; i < 80; i++) {
+    const sx = ((i * 53 + Game.introFloat * 5) % W);
+    const sy = ((i * 31 + Game.introFloat * 7) % H);
+    ctx.globalAlpha = 0.3 + (Math.sin(i + Game.introFloat * 4) + 1) * 0.35;
+    ctx.fillRect(sx, sy, 2, 2);
+  }
+  ctx.globalAlpha = 1;
+  // clouds moving upward past the camera
+  for (const c of Game.introClouds) {
+    ctx.fillStyle = `rgba(200,200,220,${0.25 + c.s * 0.2})`;
+    ctx.beginPath();
+    ctx.arc(c.x, c.y, 24 * c.s, 0, Math.PI * 2);
+    ctx.arc(c.x + 20 * c.s, c.y + 4 * c.s, 22 * c.s, 0, Math.PI * 2);
+    ctx.arc(c.x - 20 * c.s, c.y + 4 * c.s, 22 * c.s, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  // distant ground glow
+  ctx.fillStyle = 'rgba(255,120,40,0.4)';
+  ctx.fillRect(0, H - 60, W, 60);
+  ctx.fillStyle = 'rgba(255,60,0,0.3)';
+  for (let i = 0; i < 5; i++) {
+    const fx = (i * 280 + Game.introFloat * 20) % W;
+    ctx.beginPath();
+    ctx.arc(fx, H - 20, 30 + Math.sin(Game.introFloat * 6 + i) * 6, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  // draw parachuting player
+  drawPlayer(Game.player);
+}
+
+function updateCountdown(dt) {
+  Game.countdownTimer -= dt;
+  const newNum = Math.max(0, Math.ceil(Game.countdownTimer));
+  if (newNum !== Game.countdownNum) {
+    Game.countdownNum = newNum;
+    if (newNum > 0) {
+      Game.countdownEl.textContent = String(newNum);
+      audio.coin();
+      audio.impact(1 + (5 - newNum) * 0.5);
+    } else {
+      Game.countdownEl.textContent = 'GO!';
+      audio.announcer('GO GO GO');
+    }
+  }
+  // player falls toward the train
+  const p = Game.player;
+  const t = 1 - Game.countdownTimer / 5;
+  p.y = 200 + t * (GROUND_Y - 200);
+  p.x = W / 2 + Math.sin(t * 6) * 40;
+  p.animTime += dt;
+  // update environment scroll to start showing train
+  env.scroll += dt * 180;
+  if (Game.countdownTimer <= 0) {
+    setTimeout(() => Game.startPlaying(), 400);
+  }
+}
+function renderCountdown() {
+  // transition from sky to ground-level combat scene
+  drawSky();
+  drawFarMountains();
+  drawMidBuildings();
+  drawHorizonSmoke();
+  drawForegroundTrain();
+  drawPlayer(Game.player);
+}
+
+function updatePlaying(dt) {
+  Game.playTime += dt;
+  // progress through level -> update env scroll
+  env.scroll += dt * 220;
+  // Update combo
+  if (Game.comboTimer > 0) {
+    Game.comboTimer -= dt;
+    if (Game.comboTimer <= 0) { Game.comboCount = 0; Game.comboEl.classList.remove('show'); }
+  }
+  Game.player.update(dt);
+  // Enemy update + culling
+  for (const e of Game.enemies) e.update(dt);
+  Game.enemies = Game.enemies.filter(e => !e.markedForDelete);
+  // maintain pressure: ensure 3+ alive
+  Game.spawnTimer -= dt;
+  const aliveCount = Game.enemies.filter(e => !e.dead).length;
+  const targetMin = 3 + Math.floor(Game.playTime / 30);
+  if (aliveCount < targetMin && Game.spawnTimer <= 0) {
+    Game.spawnEnemy(Math.random() < 0.5 ? -1 : 1);
+    Game.spawnTimer = rand(0.35, 1.1);
+  }
+  updateBullets(dt);
+  updateParticles(dt);
+  updatePickups(dt);
+  // Check level end
+  if (Game.playTime >= LEVEL_DUR) {
+    Game.doWin(); return;
+  }
+  if (Game.player.dead) {
+    Game.doGameOver(); return;
+  }
+  // Update HUD
+  Game.hpFillEl.style.width = Math.max(0, (Game.player.hp / Game.player.hpMax) * 100) + '%';
+  // ammo: heat effects
+  if (Game.player.reloading) {
+    Game.ammoEl.textContent = 'RELOADING';
+    Game.ammoEl.classList.add('reloading');
+    Game.ammoEl.style.color = '';
+    Game.ammoEl.style.transform = '';
+  } else {
+    Game.ammoEl.classList.remove('reloading');
+    Game.ammoEl.textContent = String(Game.player.ammo);
+    const frac = Game.player.ammo / Game.player.ammoMax;
+    // interpolate color toward red at low ammo
+    const r = Math.round(255);
+    const g = Math.round(255 * Math.min(1, frac * 2));
+    const b = Math.round(140 * Math.min(1, frac * 2));
+    Game.ammoEl.style.color = `rgb(${r}, ${g}, ${b})`;
+    // shake factor grows as ammo lowers
+    const shakeFactor = Math.max(0, 1 - frac * 2) * 6;
+    const sx = (Math.random() - 0.5) * shakeFactor;
+    const sy = (Math.random() - 0.5) * shakeFactor;
+    Game.ammoEl.style.transform = `translate(${sx.toFixed(2)}px, ${sy.toFixed(2)}px)`;
+  }
+  const prog = Math.min(1, Game.playTime / LEVEL_DUR);
+  Game.progFillEl.style.width = (prog * 100) + '%';
+  Game.progIconEl.style.left = (prog * 100) + '%';
+
+  // Occasional random loot drop to add visual noise
+  if (Math.random() < 0.008 + 0.002 * Math.sin(Game.playTime)) {
+    spawnPickup(rand(100, W - 100), rand(100, 300));
+  }
+}
+function renderPlaying() {
+  drawSky();
+  drawFarMountains();
+  drawMidBuildings();
+  drawHorizonSmoke();
+  drawForegroundTrain();
+  // draw pickups between train and characters
+  drawPickups();
+  // enemies (back-to-front ordered by y)
+  const drawable = [...Game.enemies, Game.player];
+  drawable.sort((a, b) => a.y - b.y);
+  for (const d of drawable) {
+    if (d instanceof Enemy) drawEnemy(d);
+    else drawPlayer(d);
+  }
+  drawBullets();
+  drawParticles();
+  // sparkly foreground chaos
+  if (Math.random() < 0.25) {
+    addParticle('spark', { x: rand(0, W), y: rand(H - 160, H - 100),
+      vx: rand(-60, 60), vy: rand(-40, 10), life: rand(0.15, 0.35), size: 2,
+      color: choice(['#ff0', '#fa0', '#fff']), grav: 240 });
+  }
+}
+
+function renderFrame() {
+  ctx.save();
+  ctx.translate(Camera.shakeX, Camera.shakeY);
+  ctx.clearRect(-50, -50, W + 100, H + 100);
+  switch (Game.state) {
+    case 'INTRO': renderIntro(); break;
+    case 'COUNTDOWN': renderCountdown(); break;
+    case 'PLAYING': renderPlaying(); break;
+    default:
+      // gameover/win overlays are pure HTML; clear to match
+      ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+      break;
+  }
+  ctx.restore();
+}
+
+// -------------------- main loop --------------------
+let lastTs = performance.now();
+function frame(now) {
+  const dt = Math.min(0.05, (now - lastTs) / 1000);
+  lastTs = now;
+  Camera.update(dt);
+  Game.clock += dt;
+  switch (Game.state) {
+    case 'INTRO': updateIntro(dt); break;
+    case 'COUNTDOWN': updateCountdown(dt); break;
+    case 'PLAYING': updatePlaying(dt); break;
+    default: break;
+  }
+  renderFrame();
+  Input.endFrame();
+  requestAnimationFrame(frame);
+}
+
+// -------------------- boot --------------------
+Game.init();
+requestAnimationFrame(frame);
+
+// click anywhere to unlock audio (autoplay policy)
+document.addEventListener('pointerdown', () => {
+  if (!audio.ready) { audio.init(); audio.startMusic();
+    const h = document.getElementById('audio-hint'); if (h) h.style.display = 'none';
+  }
+}, { once: false });
+
+// Resize: scale stage to fit window while preserving aspect ratio
+function fit() {
+  const stage = document.getElementById('stage');
+  const sw = window.innerWidth, sh = window.innerHeight;
+  const sx = sw / 1280, sy = sh / 720;
+  const s = Math.min(sx, sy);
+  stage.style.transform = `scale(${s})`;
+}
+window.addEventListener('resize', fit); fit();
+</script>
+</body>
+</html>

@@ -1,0 +1,1834 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>METAL SLOB xIA</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+  html,body{margin:0;padding:0;background:#000;overflow:hidden;height:100%;width:100%;
+            font-family:'Press Start 2P',monospace;color:#fff;user-select:none;}
+  body{display:flex;align-items:center;justify-content:center;}
+  #wrap{position:relative;width:min(100vw, calc(100vh * 16 / 9));
+        height:min(100vh, calc(100vw * 9 / 16));background:#000;}
+  canvas{position:absolute;inset:0;width:100%;height:100%;
+         image-rendering:pixelated;image-rendering:crisp-edges;
+         image-rendering:-moz-crisp-edges;cursor:crosshair;}
+  #startOverlay{position:absolute;inset:0;display:flex;flex-direction:column;
+                align-items:center;justify-content:center;background:#000;color:#ffca2c;
+                text-align:center;padding:20px;box-sizing:border-box;cursor:pointer;
+                text-shadow:3px 3px 0 #c01818;}
+  #startOverlay h1{font-size:clamp(18px,4vw,48px);margin:8px;color:#ff3838;
+                    letter-spacing:2px;animation:blink 1.2s infinite;}
+  #startOverlay p{font-size:clamp(8px,1.4vw,14px);margin:6px;line-height:1.8;}
+  #startOverlay .btn{margin-top:20px;padding:14px 26px;border:4px solid #ffca2c;
+                     color:#000;background:#ffca2c;font-family:inherit;
+                     font-size:clamp(10px,1.8vw,18px);animation:pulse 0.8s infinite;}
+  @keyframes blink{0%,49%{opacity:1}50%,100%{opacity:.25}}
+  @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="game" width="480" height="270"></canvas>
+  <div id="startOverlay">
+    <h1>METAL SLOB xIA</h1>
+    <p>A browser arcade of pure pandemonium</p>
+    <p style="color:#8fd"> ← / A &nbsp; → / D &nbsp;&nbsp; SPACE: jump &nbsp; SHIFT: slide &nbsp; CTRL/Q: knife </p>
+    <p style="color:#ff8"> RIFLE AUTO-FIRES &nbsp;·&nbsp; 69 ROUNDS/MAG &nbsp;·&nbsp; 3-MIN RAMPAGE </p>
+    <div class="btn">CLICK OR PRESS ANY KEY<br>&gt;&gt; INSERT COIN &lt;&lt;</div>
+    <p style="color:#888;margin-top:20px;font-size:10px">Audio on. Volume up. Sorry neighbors.</p>
+  </div>
+</div>
+<script>
+/* ============================================================================
+   METAL SLOB xIA  ·  single-file arcade shooter
+   Audio: Web Audio API (fully synthesized, no assets)
+   Graphics: Canvas 2D, procedural pixel art, three-layer parallax
+   Everything original. No copyrighted characters or music.
+   ============================================================================ */
+"use strict";
+
+/* ---------- canvas & scaling -------------------------------------------- */
+const cvs = document.getElementById('game');
+const ctx = cvs.getContext('2d');
+ctx.imageSmoothingEnabled = false;
+const GW = 480, GH = 270;                // internal game resolution
+const GROUND_Y = 220;                    // ground line in internal px
+
+/* ---------- utilities --------------------------------------------------- */
+const rand  = (a, b) => a + Math.random() * (b - a);
+const irand = (a, b) => Math.floor(rand(a, b + 1));
+const clamp = (v, lo, hi) => v < lo ? lo : v > hi ? hi : v;
+const chance= p => Math.random() < p;
+const dist2 = (a, b) => (a.x - b.x) ** 2 + (a.y - b.y) ** 2;
+const now   = () => performance.now() / 1000;
+
+/* ============================================================================
+   1. AUDIO ENGINE — everything synthesized
+   ============================================================================ */
+class Audio {
+  constructor() {
+    this.ctx = null; this.master = null; this.musicGain = null;
+    this.musicTimer = null; this.musicStep = 0; this.ready = false;
+  }
+  init() {
+    if (this.ready) return;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    this.ctx = new AC();
+    this.master = this.ctx.createGain(); this.master.gain.value = 0.55;
+    this.master.connect(this.ctx.destination);
+    this.musicGain = this.ctx.createGain(); this.musicGain.gain.value = 0.18;
+    this.musicGain.connect(this.master);
+    this.ready = true;
+  }
+  t() { return this.ctx.currentTime; }
+  noiseBuf(dur) {
+    const sr = this.ctx.sampleRate, len = Math.max(1, Math.floor(sr * dur));
+    const buf = this.ctx.createBuffer(1, len, sr);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    return buf;
+  }
+  env(g, a, d, peak = 1) {
+    const t = this.t();
+    g.gain.cancelScheduledValues(t);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(peak, t + a);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + a + d);
+  }
+
+  shot() {
+    if (!this.ready) return;
+    // snap: hi bandpass noise
+    const src = this.ctx.createBufferSource(); src.buffer = this.noiseBuf(0.08);
+    const bp  = this.ctx.createBiquadFilter(); bp.type = 'bandpass';
+    bp.frequency.value = 1800; bp.Q.value = 2;
+    const g1  = this.ctx.createGain();
+    src.connect(bp).connect(g1).connect(this.master);
+    this.env(g1, 0.002, 0.08, 0.45);
+    src.start();
+    // boom tail
+    const o = this.ctx.createOscillator(); o.type = 'sine';
+    const g2 = this.ctx.createGain();
+    o.frequency.setValueAtTime(140, this.t());
+    o.frequency.exponentialRampToValueAtTime(45, this.t() + 0.1);
+    o.connect(g2).connect(this.master);
+    this.env(g2, 0.002, 0.12, 0.35);
+    o.start(); o.stop(this.t() + 0.14);
+  }
+  coin() {
+    if (!this.ready) return;
+    [988, 1318].forEach((f, i) => {
+      const o = this.ctx.createOscillator(); o.type = 'square';
+      const g = this.ctx.createGain();
+      o.frequency.value = f;
+      o.connect(g).connect(this.master);
+      const t0 = this.t() + i * 0.07;
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(0.2, t0 + 0.005);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.1);
+      o.start(t0); o.stop(t0 + 0.12);
+    });
+  }
+  knifeSwing() {
+    if (!this.ready) return;
+    for (let i = 0; i < 2; i++) {
+      const src = this.ctx.createBufferSource(); src.buffer = this.noiseBuf(0.12);
+      const bp = this.ctx.createBiquadFilter(); bp.type = 'bandpass';
+      const g = this.ctx.createGain();
+      const t0 = this.t() + i * 0.09;
+      bp.frequency.setValueAtTime(2000, t0);
+      bp.frequency.exponentialRampToValueAtTime(6000, t0 + 0.08);
+      bp.Q.value = 4;
+      src.connect(bp).connect(g).connect(this.master);
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(0.35, t0 + 0.005);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.1);
+      src.start(t0);
+    }
+  }
+  knifeHit() {
+    if (!this.ready) return;
+    // wet low-freq thud + short squelch
+    const src = this.ctx.createBufferSource(); src.buffer = this.noiseBuf(0.18);
+    const lp = this.ctx.createBiquadFilter(); lp.type = 'lowpass';
+    lp.frequency.value = 600;
+    const g = this.ctx.createGain();
+    src.connect(lp).connect(g).connect(this.master);
+    this.env(g, 0.003, 0.18, 0.5);
+    src.start();
+    // chof-chof squelch
+    for (let i = 0; i < 2; i++) {
+      const o = this.ctx.createOscillator(); o.type = 'sawtooth';
+      const og = this.ctx.createGain();
+      const t0 = this.t() + 0.05 + i * 0.09;
+      o.frequency.setValueAtTime(220, t0);
+      o.frequency.exponentialRampToValueAtTime(90, t0 + 0.08);
+      o.connect(og).connect(this.master);
+      og.gain.setValueAtTime(0.0001, t0);
+      og.gain.exponentialRampToValueAtTime(0.25, t0 + 0.01);
+      og.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.1);
+      o.start(t0); o.stop(t0 + 0.12);
+    }
+  }
+  enemyDeath() {
+    if (!this.ready) return;
+    // descending formant-ish scream
+    const o = this.ctx.createOscillator(); o.type = 'sawtooth';
+    const lp = this.ctx.createBiquadFilter(); lp.type = 'lowpass';
+    lp.frequency.value = 1500; lp.Q.value = 3;
+    const g = this.ctx.createGain();
+    o.connect(lp).connect(g).connect(this.master);
+    const t0 = this.t();
+    o.frequency.setValueAtTime(600 + rand(-80, 120), t0);
+    o.frequency.exponentialRampToValueAtTime(110, t0 + 0.7);
+    // vibrato
+    const lfo = this.ctx.createOscillator(); lfo.type = 'sine'; lfo.frequency.value = 12;
+    const lfoG = this.ctx.createGain(); lfoG.gain.value = 40;
+    lfo.connect(lfoG).connect(o.frequency);
+    lfo.start(t0); lfo.stop(t0 + 0.8);
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(0.32, t0 + 0.03);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.75);
+    o.start(t0); o.stop(t0 + 0.8);
+    // noise layer
+    const src = this.ctx.createBufferSource(); src.buffer = this.noiseBuf(0.5);
+    const bp = this.ctx.createBiquadFilter(); bp.type = 'bandpass';
+    bp.frequency.value = 900;
+    const ng = this.ctx.createGain();
+    src.connect(bp).connect(ng).connect(this.master);
+    ng.gain.setValueAtTime(0.0001, t0);
+    ng.gain.exponentialRampToValueAtTime(0.12, t0 + 0.05);
+    ng.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.5);
+    src.start(t0);
+  }
+  enemyAttack() {
+    if (!this.ready) return;
+    const o = this.ctx.createOscillator(); o.type = 'sawtooth';
+    const lp = this.ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1200;
+    const g = this.ctx.createGain();
+    o.connect(lp).connect(g).connect(this.master);
+    const t0 = this.t();
+    o.frequency.setValueAtTime(220, t0);
+    o.frequency.exponentialRampToValueAtTime(380, t0 + 0.09);
+    o.frequency.exponentialRampToValueAtTime(160, t0 + 0.25);
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(0.22, t0 + 0.03);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.28);
+    o.start(t0); o.stop(t0 + 0.3);
+  }
+  enemySwear() {
+    if (!this.ready) return;
+    const o = this.ctx.createOscillator(); o.type = 'square';
+    const g = this.ctx.createGain();
+    o.connect(g).connect(this.master);
+    const t0 = this.t();
+    o.frequency.setValueAtTime(300, t0);
+    o.frequency.exponentialRampToValueAtTime(180, t0 + 0.09);
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(0.18, t0 + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.1);
+    o.start(t0); o.stop(t0 + 0.12);
+  }
+  slideYell() {
+    if (!this.ready) return;
+    // rising-then-plateau "whooo" shout
+    const o = this.ctx.createOscillator(); o.type = 'sawtooth';
+    const lp = this.ctx.createBiquadFilter(); lp.type = 'lowpass';
+    lp.frequency.value = 1800;
+    const g = this.ctx.createGain();
+    o.connect(lp).connect(g).connect(this.master);
+    const t0 = this.t();
+    o.frequency.setValueAtTime(180, t0);
+    o.frequency.exponentialRampToValueAtTime(360, t0 + 0.12);
+    o.frequency.setValueAtTime(360, t0 + 0.5);
+    o.frequency.exponentialRampToValueAtTime(240, t0 + 0.7);
+    const lfo = this.ctx.createOscillator(); lfo.type = 'sine'; lfo.frequency.value = 8;
+    const lfoG = this.ctx.createGain(); lfoG.gain.value = 20;
+    lfo.connect(lfoG).connect(o.frequency);
+    lfo.start(t0); lfo.stop(t0 + 0.75);
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(0.28, t0 + 0.05);
+    g.gain.setValueAtTime(0.28, t0 + 0.55);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.72);
+    o.start(t0); o.stop(t0 + 0.75);
+  }
+  playerHurt() {
+    if (!this.ready) return;
+    const o = this.ctx.createOscillator(); o.type = 'sawtooth';
+    const g = this.ctx.createGain();
+    o.connect(g).connect(this.master);
+    const t0 = this.t();
+    o.frequency.setValueAtTime(180, t0);
+    o.frequency.exponentialRampToValueAtTime(80, t0 + 0.2);
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(0.28, t0 + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.22);
+    o.start(t0); o.stop(t0 + 0.25);
+    // thud
+    const src = this.ctx.createBufferSource(); src.buffer = this.noiseBuf(0.15);
+    const lp = this.ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 200;
+    const sg = this.ctx.createGain();
+    src.connect(lp).connect(sg).connect(this.master);
+    sg.gain.setValueAtTime(0.0001, t0);
+    sg.gain.exponentialRampToValueAtTime(0.4, t0 + 0.005);
+    sg.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.15);
+    src.start(t0);
+  }
+  reloadClick() {
+    if (!this.ready) return;
+    [0, 0.12, 0.22].forEach(delay => {
+      const src = this.ctx.createBufferSource(); src.buffer = this.noiseBuf(0.04);
+      const bp = this.ctx.createBiquadFilter(); bp.type = 'bandpass';
+      bp.frequency.value = 3000; bp.Q.value = 4;
+      const g = this.ctx.createGain();
+      src.connect(bp).connect(g).connect(this.master);
+      const t0 = this.t() + delay;
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(0.35, t0 + 0.002);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.04);
+      src.start(t0);
+    });
+  }
+  announce(type) {
+    if (!this.ready) return;
+    // deep pitched announcer-ish impact
+    const o = this.ctx.createOscillator(); o.type = 'square';
+    const lp = this.ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 900;
+    const g = this.ctx.createGain();
+    o.connect(lp).connect(g).connect(this.master);
+    const t0 = this.t();
+    const freq = type === 'headshot' ? 90 : 70;
+    o.frequency.setValueAtTime(freq, t0);
+    o.frequency.exponentialRampToValueAtTime(freq * 0.6, t0 + 0.5);
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(0.4, t0 + 0.05);
+    g.gain.setValueAtTime(0.4, t0 + 0.35);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.55);
+    o.start(t0); o.stop(t0 + 0.6);
+    // metallic shimmer on top
+    const src = this.ctx.createBufferSource(); src.buffer = this.noiseBuf(0.5);
+    const bp = this.ctx.createBiquadFilter(); bp.type = 'bandpass';
+    bp.frequency.value = 4500; bp.Q.value = 6;
+    const sg = this.ctx.createGain();
+    src.connect(bp).connect(sg).connect(this.master);
+    sg.gain.setValueAtTime(0.0001, t0);
+    sg.gain.exponentialRampToValueAtTime(0.1, t0 + 0.05);
+    sg.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.5);
+    src.start(t0);
+  }
+  siren(dur = 3.5) {
+    if (!this.ready) return;
+    const o = this.ctx.createOscillator(); o.type = 'sawtooth';
+    const g = this.ctx.createGain();
+    o.connect(g).connect(this.master);
+    const t0 = this.t();
+    // slow sweep up and down
+    const steps = 10;
+    for (let i = 0; i <= steps; i++) {
+      const t = t0 + (i / steps) * dur;
+      const f = 320 + 280 * (i % 2);
+      if (i === 0) o.frequency.setValueAtTime(f, t);
+      else o.frequency.exponentialRampToValueAtTime(f, t);
+    }
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(0.55, t0 + 0.1);
+    g.gain.setValueAtTime(0.55, t0 + dur - 0.15);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    o.start(t0); o.stop(t0 + dur + 0.05);
+    // second harmonic for density
+    const o2 = this.ctx.createOscillator(); o2.type = 'square';
+    const g2 = this.ctx.createGain();
+    o2.connect(g2).connect(this.master);
+    for (let i = 0; i <= steps; i++) {
+      const t = t0 + (i / steps) * dur;
+      const f = 160 + 140 * (i % 2);
+      if (i === 0) o2.frequency.setValueAtTime(f, t);
+      else o2.frequency.exponentialRampToValueAtTime(f, t);
+    }
+    g2.gain.setValueAtTime(0.0001, t0);
+    g2.gain.exponentialRampToValueAtTime(0.35, t0 + 0.1);
+    g2.gain.setValueAtTime(0.35, t0 + dur - 0.15);
+    g2.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    o2.start(t0); o2.stop(t0 + dur + 0.05);
+  }
+  countBeep(high = false) {
+    if (!this.ready) return;
+    const o = this.ctx.createOscillator(); o.type = 'square';
+    const g = this.ctx.createGain();
+    o.connect(g).connect(this.master);
+    const t0 = this.t();
+    o.frequency.value = high ? 1200 : 700;
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(0.25, t0 + 0.005);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.2);
+    o.start(t0); o.stop(t0 + 0.22);
+  }
+
+  /* ---- looping chiptune music (A-minor, 150 bpm-ish) ---- */
+  // Scale degrees in A minor: A2=55, C3=65.4, D3=73.4, E3=82.4, G3=98
+  // Melody in higher octave
+  startMusic() {
+    if (!this.ready || this.musicTimer) return;
+    // bass pattern (16th notes, step length ~0.11s -> ~136 bpm)
+    const step = 0.125; // 120 bpm sixteenths
+    const bass = [
+      [55,1],[0,1],[55,1],[82.4,1],  [55,1],[0,1],[73.4,1],[55,1],
+      [65.4,1],[0,1],[65.4,1],[98,1], [65.4,1],[0,1],[82.4,1],[65.4,1],
+    ];
+    const lead = [
+      [440,2],[523,1],[659,1], [587,2],[523,1],[440,1],
+      [523,2],[659,1],[783,1], [880,2],[783,1],[659,1],
+      [523,2],[440,1],[523,1], [587,2],[659,1],[587,1],
+      [523,4],                 [440,4],
+    ];
+    this.musicStep = 0;
+    let bIdx = 0, lIdx = 0, lCountdown = 0;
+    const playBass = () => {
+      const [f, len] = bass[bIdx % bass.length];
+      bIdx++;
+      if (f === 0) return;
+      const o = this.ctx.createOscillator(); o.type = 'triangle';
+      const g = this.ctx.createGain();
+      o.connect(g).connect(this.musicGain);
+      const t0 = this.t();
+      o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(0.55, t0 + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + step * len * 0.9);
+      o.start(t0); o.stop(t0 + step * len);
+    };
+    const playLead = () => {
+      if (lCountdown > 0) { lCountdown--; return; }
+      const [f, len] = lead[lIdx % lead.length];
+      lIdx++;
+      lCountdown = len - 1;
+      if (f === 0) return;
+      const o = this.ctx.createOscillator(); o.type = 'square';
+      const g = this.ctx.createGain();
+      const lp = this.ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2500;
+      o.connect(lp).connect(g).connect(this.musicGain);
+      const t0 = this.t();
+      o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(0.18, t0 + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + step * len * 0.9);
+      o.start(t0); o.stop(t0 + step * len);
+    };
+    // noise snare on beats 2 and 4 (every 4th step)
+    const playDrum = () => {
+      if (this.musicStep % 4 !== 2) return;
+      const src = this.ctx.createBufferSource(); src.buffer = this.noiseBuf(0.1);
+      const hp = this.ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 1500;
+      const g = this.ctx.createGain();
+      src.connect(hp).connect(g).connect(this.musicGain);
+      const t0 = this.t();
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(0.35, t0 + 0.002);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.1);
+      src.start(t0);
+    };
+    const tick = () => {
+      playBass(); playLead(); playDrum();
+      this.musicStep++;
+    };
+    this.musicTimer = setInterval(tick, step * 1000);
+  }
+  stopMusic() {
+    if (this.musicTimer) { clearInterval(this.musicTimer); this.musicTimer = null; }
+  }
+}
+const SFX = new Audio();
+
+/* ============================================================================
+   2. GAME STATE
+   ============================================================================ */
+const STATE = {
+  INTRO: 'intro', COUNTDOWN: 'countdown', PLAYING: 'playing',
+  GAMEOVER: 'gameover', WIN: 'win', RESTART: 'restart', WIN_FROZEN: 'winfrozen'
+};
+let state = STATE.INTRO;
+let stateTime = 0;
+const LEVEL_LENGTH = 9200;   // long enough for ~2-3 min at 80 px/s scroll
+const SCROLL_SPEED = 55;     // passive rightward drift; player can accelerate by running
+const PLAYER_SPEED = 110;
+const GRAVITY = 560;
+
+/* ---------- input ------------------------------------------------------- */
+const keys = {};
+const once = {};      // consumed each frame
+let anyKeyPresses = 0;
+let introSeqStep = 0; // 0: waiting for LEFT, 1: for RIGHT, 2: for SPACE
+let introSeqShown = false;
+
+function pressed(code) { return !!keys[code]; }
+function consume(code) {
+  if (once[code]) { once[code] = false; return true; }
+  return false;
+}
+window.addEventListener('keydown', (e) => {
+  if (['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Space'].includes(e.code)) e.preventDefault();
+  if (!keys[e.code]) once[e.code] = true;
+  keys[e.code] = true;
+  SFX.init();
+  anyKeyPresses++;
+  handleIntroInput(e.code);
+  handleTerminalInput();
+}, { passive: false });
+window.addEventListener('keyup', (e) => { keys[e.code] = false; });
+window.addEventListener('mousedown', () => { SFX.init(); anyKeyPresses++; handleTerminalInput(); });
+
+document.getElementById('startOverlay').addEventListener('click', startGame);
+window.addEventListener('keydown', startGame, { once: true });
+function startGame() {
+  SFX.init();
+  const o = document.getElementById('startOverlay');
+  if (o) o.remove();
+  SFX.startMusic();
+}
+
+/* ============================================================================
+   3. PLAYER — procedural drawn character
+   ============================================================================ */
+const player = {
+  x: 80, y: GROUND_Y, vx: 0, vy: 0,
+  facing: 1,                 // -1 left, 1 right
+  onGround: true,
+  action: 'idle',            // idle | run | shoot | knife | jump | slide | parachute
+  actionTime: 0,
+  frame: 0,
+  hp: 100, maxHp: 100,
+  ammo: 69, maxAmmo: 69,
+  reloading: false, reloadTime: 0,
+  fireCooldown: 0,
+  knifeCooldown: 0,
+  slideCooldown: 0,
+  sliding: false, slideTime: 0,
+  flash: 0,                  // muzzle flash timer
+  invuln: 0,
+  score: 0,
+  kills: 0,
+  recentKills: [],           // timestamps
+  parachuteY: -60,
+  yelled: false,
+};
+
+function resetPlayer() {
+  Object.assign(player, {
+    x: 80, y: GROUND_Y, vx: 0, vy: 0, facing: 1, onGround: true,
+    action: 'parachute', actionTime: 0, frame: 0,
+    hp: 100, ammo: 69, reloading: false, reloadTime: 0,
+    fireCooldown: 0, knifeCooldown: 0, slideCooldown: 0,
+    sliding: false, slideTime: 0, flash: 0, invuln: 0,
+    score: 0, kills: 0, recentKills: [],
+    parachuteY: -60, yelled: false,
+  });
+}
+
+/* ============================================================================
+   4. ENTITIES
+   ============================================================================ */
+const enemies = [];
+const bullets = [];
+const eBullets = [];
+const particles = [];
+const pickups = [];
+const floaters = [];     // floating text (HEADSHOT, +100)
+
+function addParticle(o) { particles.push(Object.assign({
+  x:0, y:0, vx:0, vy:0, life:0.5, maxLife:0.5, size:2, color:'#fff', g:0
+}, o)); }
+
+function addFloater(text, x, y, color='#ffca2c', big=false) {
+  floaters.push({ text, x, y, vy:-35, life:1.2, maxLife:1.2, color, big });
+}
+
+function spawnEnemy(side) {
+  const fromLeft = side === 'left';
+  const x = fromLeft ? camera.x - 24 : camera.x + GW + 24;
+  const e = {
+    x, y: GROUND_Y, vx: 0, vy: 0,
+    hp: 10, maxHp: 10,
+    facing: fromLeft ? 1 : -1,
+    action: 'run', actionTime: 0, frame: 0,
+    shootCooldown: rand(0.8, 2.2),
+    dying: false, dyingTime: 0,
+    blinkTimer: 0, blinkVisible: true,
+    yellCooldown: rand(0.5, 3),
+    flash: 0,
+    kind: chance(0.3) ? 'heavy' : 'trooper',
+  };
+  if (e.kind === 'heavy') { e.hp = 16; e.maxHp = 16; }
+  enemies.push(e);
+}
+
+function spawnPickup(x, y, type='coin') {
+  pickups.push({ x, y, type, vy: -120, vx: rand(-40, 40), life: 8, born: now(), collected: false });
+}
+
+/* ============================================================================
+   5. CAMERA & PARALLAX
+   ============================================================================ */
+const camera = { x: 0, shakeT: 0, shakeMag: 0, shakeX: 0, shakeY: 0 };
+function addShake(mag, dur=0.25) {
+  camera.shakeMag = Math.max(camera.shakeMag, mag);
+  camera.shakeT   = Math.max(camera.shakeT, dur);
+}
+
+/* Static-ish clutter positions for parallax layers */
+const bgMountains = [];
+const bgCities    = [];
+const midDebris   = [];
+const bgStars     = [];
+function initParallax() {
+  bgMountains.length = 0; bgCities.length = 0; midDebris.length = 0; bgStars.length = 0;
+  for (let x = -200; x < LEVEL_LENGTH + 400; x += irand(40, 80)) {
+    bgMountains.push({ x, h: irand(40, 90), w: irand(80, 160) });
+  }
+  for (let x = -100; x < LEVEL_LENGTH + 400; x += irand(60, 110)) {
+    bgCities.push({ x, h: irand(30, 70), w: irand(20, 50),
+                    burning: chance(0.4), windows: irand(2, 5) });
+  }
+  for (let x = -100; x < LEVEL_LENGTH + 400; x += irand(100, 200)) {
+    midDebris.push({
+      x, kind: ['wreck','barricade','crate','tracks','pole'][irand(0,4)],
+      scale: rand(0.9, 1.3)
+    });
+  }
+  for (let i = 0; i < 50; i++) {
+    bgStars.push({ x: rand(0, GW), y: rand(0, 80), b: rand(0.3, 1) });
+  }
+}
+initParallax();
+
+/* Zone determines scenery: train → ground → compound → battlefield */
+function zoneFor(x) {
+  const p = x / LEVEL_LENGTH;
+  if (p < 0.25) return 'train';
+  if (p < 0.55) return 'ground';
+  if (p < 0.80) return 'compound';
+  return 'battlefield';
+}
+
+/* ============================================================================
+   6. DRAWING — procedural pixel characters
+   ============================================================================ */
+function px(x, y, w, h, color) {
+  ctx.fillStyle = color;
+  ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
+}
+
+function drawPlayer() {
+  const p = player;
+  const baseX = p.x - camera.x, baseY = p.y;
+  ctx.save();
+  if (p.invuln > 0 && Math.floor(p.invuln * 20) % 2 === 0) ctx.globalAlpha = 0.4;
+  ctx.translate(baseX, baseY);
+  ctx.scale(p.facing, 1);
+
+  if (p.action === 'parachute') {
+    // parachute canopy
+    px(-12, -46, 24, 4, '#c01818');
+    px(-14, -44, 2, 4, '#c01818'); px(12, -44, 2, 4, '#c01818');
+    // strings
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(-10, -40); ctx.lineTo(-4, -24);
+    ctx.moveTo(10, -40);  ctx.lineTo(4, -24);
+    ctx.stroke();
+    drawPlayerBody(0, 0, 'idle', 0);
+    ctx.restore();
+    return;
+  }
+
+  if (p.action === 'slide') {
+    // prone sliding
+    ctx.rotate(-0.25);
+    drawPlayerBody(2, -4, 'slide', p.frame);
+    // dust cloud behind
+    for (let i = 0; i < 2; i++) {
+      const dx = -8 - i * 4 + rand(-2, 2);
+      px(dx, -2 + rand(-1,1), 3, 3, '#c0a070');
+    }
+  } else {
+    drawPlayerBody(0, 0, p.action, p.frame);
+  }
+
+  // muzzle flash
+  if (p.flash > 0 && (p.action === 'shoot' || p.action === 'run' || p.action === 'jump')) {
+    const fx = 13, fy = -16;
+    px(fx, fy, 6, 3, '#ffef4a');
+    px(fx + 2, fy - 1, 3, 5, '#ff8c20');
+    px(fx + 6, fy + 1, 3, 1, '#ffffff');
+  }
+  ctx.restore();
+}
+
+/* Body parts drawn relative to feet at (0,0), facing positive X */
+function drawPlayerBody(ox, oy, action, frame) {
+  // tx: 0 -> feet
+  // colors
+  const SKIN = '#5a3418', SKIN2 = '#7a4a24';
+  const HAIR = '#1a120c';
+  const UNIFORM = '#3a4a2a', UNIFORM2 = '#2a3820';
+  const BAND   = '#6a4020';  // bandolier
+  const BOOT   = '#181008';
+  const GUN    = '#202020', GUN2 = '#404040';
+
+  // leg animation cycle for 'run'
+  let leg1 = 0, leg2 = 0;
+  if (action === 'run') {
+    const cyc = frame % 4;
+    leg1 = [0, -2, 0, 2][cyc];
+    leg2 = [0, 2, 0, -2][cyc];
+  }
+  if (action === 'jump') { leg1 = -3; leg2 = -1; }
+  if (action === 'slide') { leg1 = 0; leg2 = 0; }
+
+  ctx.save();
+  ctx.translate(ox, oy);
+
+  if (action === 'slide') {
+    // horizontal body
+    // boots
+    px(10, -6, 4, 3, BOOT);
+    // legs
+    px(2, -6, 8, 2, UNIFORM);
+    // torso
+    px(-6, -10, 10, 5, UNIFORM);
+    px(-6, -10, 10, 2, BAND);
+    // head
+    px(-10, -14, 6, 6, SKIN);
+    px(-10, -15, 6, 2, HAIR);
+    // arm forward with gun
+    px(0, -12, 6, 2, SKIN);
+    px(5, -13, 6, 3, GUN);
+    px(11, -13, 2, 1, GUN2);
+    ctx.restore();
+    return;
+  }
+
+  // ----- standing/running/jumping/shooting/knife ------
+  // boots
+  px(-4, -2, 3, 2, BOOT); px(2, -2, 3, 2, BOOT);
+  // legs
+  px(-4, -8 + leg1, 3, 6 - Math.max(0,leg1), UNIFORM);
+  px(2,  -8 + leg2, 3, 6 - Math.max(0,leg2), UNIFORM);
+  // hips
+  px(-4, -10, 8, 2, UNIFORM2);
+  // torso
+  px(-5, -18, 10, 8, UNIFORM);
+  // bandolier (diagonal ~)
+  px(-5, -17, 10, 2, BAND);
+  px(-3, -15, 2, 2, '#ffc040'); // bullet glint
+  px( 1, -13, 2, 2, '#ffc040');
+  // pack on back (visible since we're flipped)
+  px(-6, -16, 1, 5, UNIFORM2);
+  // neck
+  px(-2, -20, 4, 2, SKIN2);
+  // head
+  px(-4, -26, 8, 6, SKIN);
+  // hair
+  px(-4, -27, 8, 2, HAIR);
+  px(-4, -25, 1, 1, HAIR); px(3, -25, 1, 1, HAIR);
+  // eye
+  px(1, -24, 2, 2, '#ffffff');
+  px(2, -24, 1, 1, '#000');
+  // jaw shadow
+  px(-3, -21, 6, 1, SKIN2);
+
+  // arms / weapon pose
+  if (action === 'knife') {
+    // arm outstretched with knife
+    const k = Math.min(1, frame / 3);
+    const ang = -0.4 + k * 1.2;
+    ctx.save();
+    ctx.translate(3, -17);
+    ctx.rotate(ang);
+    px(0, -1, 9, 3, SKIN);    // arm
+    px(8, -4, 7, 2, '#c0c0d0'); // blade
+    px(14, -5, 2, 4, '#e0e0ea');// tip
+    px(7, -2, 2, 4, '#552a10'); // handle
+    ctx.restore();
+  } else if (action === 'shoot' || action === 'run' || action === 'jump' || action === 'idle') {
+    // arm with rifle forward
+    const recoil = (action === 'shoot' && frame < 2) ? -2 : 0;
+    px(2 + recoil, -17, 5, 3, SKIN);            // upper arm
+    // rifle
+    px(6 + recoil, -18, 9, 2, GUN);
+    px(6 + recoil, -16, 9, 1, GUN2);
+    px(13 + recoil, -19, 2, 4, GUN2);           // sight
+    // back arm
+    px(-4, -16, 3, 3, SKIN);
+  }
+  ctx.restore();
+}
+
+function drawEnemy(e) {
+  const baseX = e.x - camera.x, baseY = e.y;
+  ctx.save();
+  if (e.flash > 0) ctx.globalAlpha = 1;
+  if (e.dying && !e.blinkVisible) { ctx.restore(); return; }
+  ctx.translate(baseX, baseY);
+  ctx.scale(e.facing, 1);
+
+  // leg cycle
+  let leg1 = 0, leg2 = 0;
+  if (!e.dying && e.action === 'run') {
+    const cyc = e.frame % 4;
+    leg1 = [0, -2, 0, 2][cyc]; leg2 = [0, 2, 0, -2][cyc];
+  }
+
+  if (e.dying) {
+    // collapsed: rotate on ground
+    ctx.rotate(Math.PI * 0.45);
+  }
+
+  const SKIN  = e.kind === 'heavy' ? '#a8c8a8' : '#c8b898';  // off-pale
+  const SKIN2 = e.kind === 'heavy' ? '#7aa07a' : '#a89070';
+  const UNIF  = e.kind === 'heavy' ? '#4a3020' : '#5a5840';
+  const UNIF2 = e.kind === 'heavy' ? '#3a2418' : '#403e28';
+  const BOOT  = '#1a1008';
+  const GUN   = '#303030';
+
+  if (e.flash > 0) {
+    // whitewash flash
+    px(-6, -28, 12, 28, '#ffffff');
+    ctx.restore();
+    return;
+  }
+
+  // boots
+  px(-4, -2, 3, 2, BOOT); px(2, -2, 3, 2, BOOT);
+  // legs
+  px(-4, -8 + leg1, 3, 6 - Math.max(0, leg1), UNIF);
+  px(2,  -8 + leg2, 3, 6 - Math.max(0, leg2), UNIF);
+  // hips
+  px(-4, -10, 8, 2, UNIF2);
+  // torso
+  px(-5, -18, 10, 8, UNIF);
+  // belt
+  px(-5, -12, 10, 1, UNIF2);
+  // chest pocket
+  px(-3, -16, 2, 2, UNIF2);
+  // head
+  px(-2, -20, 4, 2, SKIN2);
+  px(-4, -26, 8, 6, SKIN);
+  // helmet (heavy) or hair
+  if (e.kind === 'heavy') {
+    px(-5, -27, 10, 3, '#2a2a2a');
+    px(-5, -25, 1, 2, '#2a2a2a'); px(4, -25, 1, 2, '#2a2a2a');
+  } else {
+    px(-4, -27, 8, 2, '#3a2a1a');
+  }
+  // creepy eyes (slightly glowing)
+  px(-3, -24, 2, 2, '#ffe080');
+  px( 1, -24, 2, 2, '#ffe080');
+  px(-2, -23, 1, 1, '#000'); px( 2, -23, 1, 1, '#000');
+  // mouth
+  px(-2, -21, 4, 1, SKIN2);
+
+  // weapon arm
+  if (!e.dying) {
+    px(2, -17, 5, 3, SKIN);
+    px(6, -18, 8, 2, GUN);
+    px(6, -16, 8, 1, '#505050');
+  } else {
+    px(2, -14, 5, 3, SKIN);
+  }
+
+  // HP pip
+  if (!e.dying && e.hp < e.maxHp) {
+    ctx.save();
+    ctx.scale(e.facing, 1);  // unflip so text not mirrored
+    // just a small bar
+    const bw = 10, bh = 2;
+    px(-bw/2, -32, bw, bh, '#400');
+    px(-bw/2, -32, bw * (e.hp / e.maxHp), bh, '#f44');
+    ctx.restore();
+  }
+
+  ctx.restore();
+}
+
+/* ============================================================================
+   7. PARALLAX DRAWING
+   ============================================================================ */
+function drawBackground() {
+  const cx = camera.x;
+  // sky gradient (varies by zone)
+  const zone = zoneFor(cx + GW/2);
+  let sky1, sky2;
+  switch (zone) {
+    case 'train':      sky1 = '#2a1a3a'; sky2 = '#6a3a20'; break;
+    case 'ground':     sky1 = '#4a2a20'; sky2 = '#a04020'; break;
+    case 'compound':   sky1 = '#2a2a2a'; sky2 = '#603020'; break;
+    case 'battlefield':sky1 = '#300818'; sky2 = '#a01818'; break;
+  }
+  const grad = ctx.createLinearGradient(0, 0, 0, GH);
+  grad.addColorStop(0, sky1); grad.addColorStop(1, sky2);
+  ctx.fillStyle = grad; ctx.fillRect(0, 0, GW, GH);
+
+  // sun/moon
+  const sunX = ((cx * 0.05) % GW + GW) % GW;
+  ctx.fillStyle = '#ff8c30';
+  ctx.beginPath(); ctx.arc(GW - 60 - sunX * 0.1, 55, 22, 0, Math.PI*2); ctx.fill();
+
+  // stars (battlefield only is bloody red so skip stars)
+  if (zone === 'train' || zone === 'compound') {
+    for (const s of bgStars) {
+      const sx = (s.x - cx * 0.05) % GW;
+      const x  = (sx + GW) % GW;
+      ctx.fillStyle = `rgba(255,255,200,${s.b})`;
+      ctx.fillRect(x, s.y, 1, 1);
+    }
+  }
+
+  // distant mountains (parallax 0.2)
+  for (const m of bgMountains) {
+    const sx = m.x - cx * 0.2;
+    if (sx + m.w < 0 || sx > GW) continue;
+    ctx.fillStyle = '#1a1420';
+    ctx.beginPath();
+    ctx.moveTo(sx, GROUND_Y + 10);
+    ctx.lineTo(sx + m.w/2, GROUND_Y + 10 - m.h);
+    ctx.lineTo(sx + m.w, GROUND_Y + 10);
+    ctx.fill();
+  }
+
+  // burning city silhouette (parallax 0.35)
+  for (const c of bgCities) {
+    const sx = c.x - cx * 0.35;
+    if (sx + c.w < 0 || sx > GW) continue;
+    px(sx, GROUND_Y - c.h, c.w, c.h, '#0a0508');
+    // windows
+    for (let wi = 0; wi < c.windows; wi++) {
+      const wy = GROUND_Y - c.h + 6 + wi * 8;
+      if (wy > GROUND_Y - 4) break;
+      px(sx + 3, wy, 3, 3, chance(0.7) ? '#ffb020' : '#402010');
+      if (c.w > 25) px(sx + c.w - 6, wy, 3, 3, chance(0.7) ? '#ff8040' : '#201008');
+    }
+    // burning top
+    if (c.burning) {
+      const flickerX = sx + c.w / 2 + Math.sin(now() * 10 + c.x) * 2;
+      px(flickerX - 2, GROUND_Y - c.h - 6, 4, 6, '#ff4010');
+      px(flickerX - 1, GROUND_Y - c.h - 10, 2, 4, '#ffa020');
+    }
+  }
+}
+
+function drawMidGround() {
+  const cx = camera.x;
+  const zone = zoneFor(cx + GW/2);
+
+  // train tracks / ground strip (parallax 0.5)
+  for (const d of midDebris) {
+    const sx = d.x - cx * 0.5;
+    if (sx < -80 || sx > GW + 40) continue;
+    switch (d.kind) {
+      case 'wreck':
+        px(sx, GROUND_Y - 14, 22, 10, '#3a2418');
+        px(sx + 2, GROUND_Y - 17, 14, 4, '#2a1810');
+        px(sx + 4, GROUND_Y - 4, 4, 4, '#101010');   // wheels
+        px(sx + 14, GROUND_Y - 4, 4, 4, '#101010');
+        break;
+      case 'barricade':
+        px(sx, GROUND_Y - 8, 18, 6, '#5a4028');
+        px(sx + 2, GROUND_Y - 10, 4, 2, '#303030'); // razor
+        px(sx + 10, GROUND_Y - 10, 4, 2, '#303030');
+        break;
+      case 'crate':
+        px(sx, GROUND_Y - 10, 10, 10, '#6a4820');
+        px(sx + 1, GROUND_Y - 9, 8, 1, '#8a5c28');
+        px(sx, GROUND_Y - 5, 10, 1, '#8a5c28');
+        break;
+      case 'tracks':
+        for (let i = 0; i < 6; i++) px(sx + i*6, GROUND_Y - 2, 4, 1, '#4a3018');
+        break;
+      case 'pole':
+        px(sx, GROUND_Y - 40, 2, 40, '#1a1008');
+        px(sx - 4, GROUND_Y - 40, 10, 2, '#1a1008');
+        break;
+    }
+  }
+
+  // compound walls / battlefield craters
+  if (zone === 'compound' || zone === 'battlefield') {
+    for (let i = 0; i < 6; i++) {
+      const sx = ((i * 140 - cx * 0.5) % (GW + 140) + GW + 140) % (GW + 140) - 70;
+      if (zone === 'compound') {
+        px(sx, GROUND_Y - 30, 30, 30, '#2a2a2a');
+        px(sx + 4, GROUND_Y - 26, 22, 4, '#101010');
+      } else {
+        // crater
+        ctx.fillStyle = '#200408';
+        ctx.beginPath();
+        ctx.ellipse(sx + 20, GROUND_Y + 2, 24, 6, 0, 0, Math.PI*2);
+        ctx.fill();
+      }
+    }
+  }
+}
+
+function drawGround() {
+  const cx = camera.x;
+  const zone = zoneFor(cx + GW/2);
+  let groundC = '#2a1810', groundC2 = '#1a0e08';
+  if (zone === 'train')      { groundC = '#2a2028'; groundC2 = '#181218'; }
+  if (zone === 'battlefield'){ groundC = '#200808'; groundC2 = '#100404'; }
+  px(0, GROUND_Y, GW, 2, '#503020');
+  px(0, GROUND_Y + 2, GW, GH - GROUND_Y, groundC);
+  // scan lines
+  for (let y = GROUND_Y + 6; y < GH; y += 6) {
+    px(0, y, GW, 1, groundC2);
+  }
+  // train tracks on this layer when in 'train' zone
+  if (zone === 'train') {
+    for (let x = -((cx) % 12); x < GW; x += 12) {
+      px(x, GROUND_Y + 3, 6, 2, '#4a3a20');
+    }
+    px(0, GROUND_Y + 1, GW, 1, '#606060');
+    px(0, GROUND_Y + 6, GW, 1, '#606060');
+  }
+}
+
+/* ============================================================================
+   8. GAME LOGIC — update loop
+   ============================================================================ */
+let lastT = performance.now() / 1000;
+function loop(t) {
+  t = t / 1000;
+  let dt = Math.min(0.05, t - lastT);
+  lastT = t;
+  stateTime += dt;
+
+  update(dt);
+  render();
+  for (const c in once) once[c] = false;  // clear one-frame pulses
+
+  requestAnimationFrame(loop);
+}
+
+function update(dt) {
+  // shake
+  if (camera.shakeT > 0) {
+    camera.shakeT -= dt;
+    const m = camera.shakeMag * (camera.shakeT > 0 ? 1 : 0);
+    camera.shakeX = rand(-m, m); camera.shakeY = rand(-m, m);
+    if (camera.shakeT <= 0) { camera.shakeMag = 0; camera.shakeX = 0; camera.shakeY = 0; }
+  }
+
+  if (state === STATE.INTRO)      updateIntro(dt);
+  else if (state === STATE.COUNTDOWN) updateCountdown(dt);
+  else if (state === STATE.PLAYING)   updatePlaying(dt);
+  // GAMEOVER / WIN / RESTART / WIN_FROZEN: mostly passive, handled in input
+}
+
+/* ---- INTRO ---- */
+function handleIntroInput(code) {
+  if (state !== STATE.INTRO) return;
+  if (introSeqStep === 0 && (code === 'ArrowLeft' || code === 'KeyA')) {
+    introSeqStep = 1; SFX.countBeep();
+  } else if (introSeqStep === 1 && (code === 'ArrowRight' || code === 'KeyD')) {
+    introSeqStep = 2; SFX.countBeep();
+  } else if (introSeqStep === 2 && code === 'Space') {
+    introSeqStep = 3; SFX.countBeep(true);
+    state = STATE.COUNTDOWN; stateTime = 0;
+  }
+}
+function updateIntro(dt) {
+  // parachute sway while descending toward gameplay Y
+  player.action = 'parachute';
+  player.parachuteY += dt * 18;
+  if (player.parachuteY > 80) player.parachuteY = 80;
+  player.x = 80 + Math.sin(stateTime * 2) * 6;
+  player.y = GROUND_Y - 100 + Math.sin(stateTime * 1.5) * 2 + player.parachuteY * 0.2;
+}
+
+/* ---- COUNTDOWN ---- */
+let lastCountSec = 6;
+function updateCountdown(dt) {
+  // sky, player falling with chute, then 5..1..DEPLOY
+  const elapsed = stateTime;
+  const remain = Math.max(0, 5 - Math.floor(elapsed));
+  if (remain !== lastCountSec && remain >= 1) {
+    SFX.countBeep(remain === 1);
+    lastCountSec = remain;
+  }
+  // descend toward ground
+  player.action = 'parachute';
+  player.y = clamp(GROUND_Y - 100 + (elapsed / 5) * 100, 0, GROUND_Y);
+
+  if (elapsed >= 5) {
+    state = STATE.PLAYING;
+    stateTime = 0;
+    player.action = 'idle';
+    player.y = GROUND_Y;
+    SFX.countBeep(true);
+    // spawn initial enemies ahead
+    for (let i = 0; i < 3; i++) spawnEnemy('right');
+  }
+}
+
+/* ---- PLAYING ---- */
+function updatePlaying(dt) {
+  // ---- input mapping ----
+  // Per spec: Space = JUMP. The rifle auto-fires continuously (unlimited ammo,
+  // "mashing fire" arcade feel, "can jump while shooting"). Manual fire keys
+  // (J / X / Z / mouse) are also honored for tempo control.
+  const left  = pressed('ArrowLeft')  || pressed('KeyA');
+  const right = pressed('ArrowRight') || pressed('KeyD');
+  const jump  = consume('Space') || consume('ArrowUp') || consume('KeyW');
+  const knife = consume('ControlLeft') || consume('ControlRight') || consume('KeyQ');
+  const slide = consume('ShiftLeft') || consume('ShiftRight');
+  // auto-fire always; suspended during knife animation and slide
+  const fire  = player.action !== 'knife' && !player.sliding;
+
+  // slide priority
+  if (slide && player.onGround && !player.sliding && player.slideCooldown <= 0) {
+    player.sliding = true; player.slideTime = 0.6; player.action = 'slide';
+    player.vx = player.facing * 220;
+    SFX.slideYell();
+    player.slideCooldown = 0.8;
+  }
+
+  if (player.sliding) {
+    player.slideTime -= dt;
+    if (player.slideTime <= 0) {
+      player.sliding = false;
+      // auto pop-up jump
+      player.vy = -280; player.onGround = false;
+      player.action = 'jump';
+    }
+  } else {
+    // horizontal movement
+    if (left) { player.vx = -PLAYER_SPEED; player.facing = -1; }
+    else if (right) { player.vx = PLAYER_SPEED; player.facing = 1; }
+    else { player.vx *= 0.6; if (Math.abs(player.vx) < 5) player.vx = 0; }
+
+    if (jump && player.onGround) {
+      player.vy = -260; player.onGround = false;
+      player.action = 'jump';
+    }
+  }
+
+  // knife
+  if (knife && player.knifeCooldown <= 0 && !player.sliding) {
+    player.action = 'knife'; player.actionTime = 0; player.knifeCooldown = 0.4;
+    SFX.knifeSwing();
+    // hit detection
+    const reachX = player.x + player.facing * 22;
+    for (const e of enemies) {
+      if (e.dying) continue;
+      if (Math.abs(e.x - reachX) < 14 && Math.abs(e.y - player.y) < 20) {
+        hitEnemy(e, 10, true);
+      }
+    }
+  }
+
+  // fire
+  if (fire && !player.reloading && player.ammo > 0 && player.fireCooldown <= 0 &&
+      player.action !== 'knife' && !player.sliding) {
+    player.ammo--;
+    player.fireCooldown = 0.12;
+    player.flash = 0.06;
+    if (player.onGround && Math.abs(player.vx) < 1) player.action = 'shoot';
+    SFX.shot();
+    // bullet
+    bullets.push({
+      x: player.x + player.facing * 14, y: player.y - 17,
+      vx: player.facing * 520, life: 0.6
+    });
+    // shell particle
+    addParticle({
+      x: player.x - player.facing * 4, y: player.y - 16,
+      vx: -player.facing * 40 + rand(-20,20), vy: -60, g: 400,
+      life: 0.5, maxLife: 0.5, size: 2, color: '#ffc040'
+    });
+    if (player.ammo === 0) {
+      player.reloading = true; player.reloadTime = 1.2;
+      SFX.reloadClick();
+    }
+  }
+
+  player.fireCooldown -= dt;
+  player.knifeCooldown -= dt;
+  player.slideCooldown -= dt;
+  player.flash -= dt;
+  player.invuln -= dt;
+
+  // reload
+  if (player.reloading) {
+    player.reloadTime -= dt;
+    if (player.reloadTime <= 0) {
+      player.ammo = player.maxAmmo; player.reloading = false;
+    }
+  }
+
+  // physics
+  player.x += player.vx * dt;
+  if (player.sliding && !player.onGround) {
+    player.sliding = false;  // can't slide in air
+  }
+  player.vy += GRAVITY * dt;
+  player.y += player.vy * dt;
+  if (player.y >= GROUND_Y) {
+    player.y = GROUND_Y; player.vy = 0; player.onGround = true;
+  }
+
+  // constrain left edge — can't scroll backwards past current camera
+  if (player.x < camera.x + 20) player.x = camera.x + 20;
+  // allow player to stay with camera
+  if (player.x > camera.x + GW - 120) camera.x = player.x - (GW - 120);
+  // always right-drift camera lightly? No — camera follows player only.
+
+  // animations
+  player.actionTime += dt;
+  if (player.action === 'shoot' && player.actionTime > 0.1) {
+    player.action = Math.abs(player.vx) > 5 ? 'run' : 'idle';
+  }
+  if (player.action === 'knife' && player.actionTime > 0.4) { player.action = 'idle'; }
+  if (!player.onGround && player.action !== 'knife') player.action = 'jump';
+  else if (player.onGround && !player.sliding && Math.abs(player.vx) > 5 &&
+           player.action !== 'knife' && player.action !== 'shoot') {
+    player.action = 'run';
+  } else if (player.onGround && !player.sliding && Math.abs(player.vx) < 5 &&
+             player.action !== 'knife' && player.action !== 'shoot') {
+    player.action = 'idle';
+  }
+  player.frame = Math.floor(player.actionTime * 10);
+
+  // ---- camera slowly drifts right always (train is moving) so horde pressure is constant
+  camera.x += SCROLL_SPEED * 0.45 * dt;
+  if (player.x < camera.x + 8) {
+    // squish: damage if you can't keep up
+    player.x = camera.x + 8;
+    if (player.invuln <= 0) damagePlayer(1);
+  }
+
+  // ---- win condition
+  if (camera.x + GW / 2 >= LEVEL_LENGTH) {
+    state = STATE.WIN; stateTime = 0; anyKeyPresses = 0;
+    SFX.stopMusic();
+    return;
+  }
+
+  // ---- enemy update
+  updateEnemies(dt);
+  updateBullets(dt);
+  updateEnemyBullets(dt);
+  updateParticles(dt);
+  updatePickups(dt);
+  updateFloaters(dt);
+
+  // ---- spawn to maintain min 3 enemies
+  const alive = enemies.filter(e => !e.dying).length;
+  if (alive < 3) {
+    for (let i = 0; i < 3 - alive; i++) {
+      spawnEnemy(chance(0.5) ? 'left' : 'right');
+    }
+  }
+  // random extra spawns to keep chaos
+  if (chance(dt * 0.6) && enemies.length < 9) {
+    spawnEnemy(chance(0.4) ? 'left' : 'right');
+  }
+
+  // random coin drops (chaos loot)
+  if (chance(dt * 1.4)) {
+    spawnPickup(camera.x + GW + 10, GROUND_Y - rand(20, 80), 'coin');
+  }
+  if (chance(dt * 0.3)) {
+    spawnPickup(camera.x + GW + 10, GROUND_Y - rand(10, 50), 'medal');
+  }
+  // "FREE CREDITS: HACK!" random flash
+  if (chance(dt * 0.25)) {
+    addFloater('FREE CREDITS: HACK!', camera.x + rand(40, GW - 120), rand(60, 130), '#ffca2c', true);
+  }
+}
+
+/* ---- enemies ---- */
+function updateEnemies(dt) {
+  for (let i = enemies.length - 1; i >= 0; i--) {
+    const e = enemies[i];
+    if (e.flash > 0) e.flash -= dt;
+    if (e.dying) {
+      e.dyingTime += dt;
+      e.blinkTimer += dt;
+      if (e.blinkTimer > 0.1) { e.blinkVisible = !e.blinkVisible; e.blinkTimer = 0; }
+      // collapse sink
+      e.y = GROUND_Y + e.dyingTime * 6;
+      if (e.dyingTime > 0.9) { enemies.splice(i, 1); }
+      continue;
+    }
+    e.actionTime += dt;
+    e.frame = Math.floor(e.actionTime * 8);
+
+    // AI: chase player; at close-medium range, stop and shoot
+    const dx = player.x - e.x;
+    const absDx = Math.abs(dx);
+    e.facing = dx > 0 ? 1 : -1;
+    if (absDx > 90) {
+      e.vx = e.facing * PLAYER_SPEED * (e.kind === 'heavy' ? 0.7 : 0.95);
+      e.action = 'run';
+    } else if (absDx > 30) {
+      e.vx = e.facing * 40;
+      e.action = 'run';
+    } else {
+      // at close range, back up to avoid knife melee
+      e.vx = -e.facing * 20;
+      e.action = 'idle';
+    }
+    e.x += e.vx * dt;
+
+    // shoot
+    e.shootCooldown -= dt;
+    if (e.shootCooldown <= 0 && absDx < 260 && absDx > 30) {
+      eBullets.push({
+        x: e.x + e.facing * 10, y: e.y - 17,
+        vx: e.facing * 240 + rand(-20, 20),
+        vy: rand(-30, 30),
+        life: 1.0
+      });
+      e.shootCooldown = e.kind === 'heavy' ? rand(0.4, 0.8) : rand(1.0, 2.0);
+      if (chance(0.35)) SFX.enemyAttack();
+    }
+    // random yell
+    e.yellCooldown -= dt;
+    if (e.yellCooldown <= 0) {
+      if (chance(0.5)) SFX.enemySwear();
+      e.yellCooldown = rand(2, 5);
+    }
+
+    // despawn if far off screen (except keep a band)
+    if (e.x < camera.x - 120 || e.x > camera.x + GW + 240) {
+      enemies.splice(i, 1);
+    }
+  }
+}
+
+function hitEnemy(e, damage, wasKnife) {
+  if (e.dying) return;
+  e.hp -= damage; e.flash = 0.05;
+  addShake(2, 0.08);
+  if (wasKnife) {
+    // green blood spray
+    for (let i = 0; i < 12; i++) {
+      addParticle({
+        x: e.x + rand(-4, 4), y: e.y - 16 + rand(-4, 4),
+        vx: player.facing * rand(40, 180) + rand(-30, 30),
+        vy: rand(-120, 20), g: 280,
+        life: 0.7, maxLife: 0.7, size: 2 + irand(0,2),
+        color: chance(0.5) ? '#40ff60' : '#20c030'
+      });
+    }
+    SFX.knifeHit();
+  } else {
+    // small blood puff
+    for (let i = 0; i < 5; i++) {
+      addParticle({
+        x: e.x + rand(-3, 3), y: e.y - 16 + rand(-3, 3),
+        vx: player.facing * rand(20, 80), vy: rand(-60, 10), g: 260,
+        life: 0.5, maxLife: 0.5, size: 2, color: '#30e040'
+      });
+    }
+  }
+  if (e.hp <= 0) killEnemy(e);
+}
+function killEnemy(e) {
+  e.dying = true; e.dyingTime = 0; e.hp = 0;
+  e.blinkVisible = true; e.blinkTimer = 0;
+  player.score += e.kind === 'heavy' ? 250 : 100;
+  player.kills++;
+  player.recentKills.push(now());
+  SFX.enemyDeath();
+  addShake(3, 0.15);
+  addFloater(`+${e.kind === 'heavy' ? 250 : 100}`, e.x, e.y - 30, '#ffca2c');
+
+  // streak check
+  const t = now();
+  player.recentKills = player.recentKills.filter(k => t - k < 2.2);
+  if (player.recentKills.length === 3) {
+    addFloater('HEADSHOT!', player.x, 60, '#ff3838', true);
+    SFX.announce('headshot');
+    addShake(5, 0.3);
+  } else if (player.recentKills.length >= 5) {
+    addFloater('ANNIHILATION!!', player.x, 50, '#ff60ff', true);
+    SFX.announce('annihilation');
+    addShake(8, 0.5);
+    player.recentKills = [];
+  }
+  // drop coin
+  for (let i = 0; i < irand(1, 3); i++) {
+    spawnPickup(e.x + rand(-6, 6), e.y - 10, chance(0.2) ? 'medal' : 'coin');
+  }
+  // debris
+  for (let i = 0; i < 14; i++) {
+    addParticle({
+      x: e.x + rand(-5, 5), y: e.y - 14,
+      vx: rand(-140, 140), vy: rand(-240, -40), g: 420,
+      life: 0.9, maxLife: 0.9, size: 2,
+      color: chance(0.4) ? '#40ff60' : '#5a5840'
+    });
+  }
+}
+
+/* ---- bullets ---- */
+function updateBullets(dt) {
+  for (let i = bullets.length - 1; i >= 0; i--) {
+    const b = bullets[i];
+    b.x += b.vx * dt; b.life -= dt;
+    if (b.life <= 0) { bullets.splice(i, 1); continue; }
+    if (b.x < camera.x - 20 || b.x > camera.x + GW + 20) { bullets.splice(i, 1); continue; }
+    for (const e of enemies) {
+      if (e.dying) continue;
+      if (Math.abs(b.x - e.x) < 9 && Math.abs(b.y - (e.y - 16)) < 12) {
+        hitEnemy(e, 3, false);
+        bullets.splice(i, 1); break;
+      }
+    }
+  }
+}
+function updateEnemyBullets(dt) {
+  for (let i = eBullets.length - 1; i >= 0; i--) {
+    const b = eBullets[i];
+    b.x += b.vx * dt; b.y += b.vy * dt; b.life -= dt;
+    if (b.life <= 0) { eBullets.splice(i, 1); continue; }
+    if (b.x < camera.x - 20 || b.x > camera.x + GW + 20) { eBullets.splice(i, 1); continue; }
+    if (player.invuln <= 0 &&
+        Math.abs(b.x - player.x) < 8 && Math.abs(b.y - (player.y - 16)) < 14 && !player.sliding) {
+      damagePlayer(10);
+      eBullets.splice(i, 1);
+    }
+  }
+}
+function damagePlayer(amount) {
+  player.hp -= amount;
+  player.invuln = 0.6;
+  SFX.playerHurt();
+  addShake(4, 0.22);
+  // red puff
+  for (let i = 0; i < 8; i++) {
+    addParticle({
+      x: player.x + rand(-4, 4), y: player.y - 16 + rand(-4, 4),
+      vx: rand(-80, 80), vy: rand(-120, -20), g: 320,
+      life: 0.6, maxLife: 0.6, size: 2, color: '#ff3838'
+    });
+  }
+  if (player.hp <= 0) {
+    state = STATE.GAMEOVER; stateTime = 0; anyKeyPresses = 0;
+    SFX.stopMusic();
+  }
+}
+
+/* ---- particles ---- */
+function updateParticles(dt) {
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.life -= dt;
+    if (p.life <= 0) { particles.splice(i, 1); continue; }
+    p.vy += (p.g || 0) * dt;
+    p.x += p.vx * dt; p.y += p.vy * dt;
+  }
+}
+/* ---- pickups ---- */
+function updatePickups(dt) {
+  for (let i = pickups.length - 1; i >= 0; i--) {
+    const p = pickups[i];
+    p.vy += 500 * dt;
+    p.x += p.vx * dt; p.y += p.vy * dt;
+    if (p.y > GROUND_Y - 4) { p.y = GROUND_Y - 4; p.vy = 0; p.vx *= 0.8; }
+    p.life -= dt;
+    if (p.life <= 0 || p.x < camera.x - 40) { pickups.splice(i, 1); continue; }
+    // collision with player
+    if (!p.collected && Math.abs(p.x - player.x) < 12 && Math.abs(p.y - player.y + 16) < 22) {
+      p.collected = true;
+      SFX.coin();
+      player.score += p.type === 'medal' ? 50 : 10;
+      addFloater(p.type === 'medal' ? '+50' : '+10', p.x, p.y - 8, '#ffca2c');
+      for (let k = 0; k < 5; k++) {
+        addParticle({
+          x: p.x, y: p.y, vx: rand(-80,80), vy: rand(-120,-30), g: 300,
+          life: 0.4, maxLife: 0.4, size: 2,
+          color: chance(0.5) ? '#ffef4a' : '#ffffff'
+        });
+      }
+      pickups.splice(i, 1);
+    }
+  }
+}
+/* ---- floaters ---- */
+function updateFloaters(dt) {
+  for (let i = floaters.length - 1; i >= 0; i--) {
+    const f = floaters[i];
+    f.y += f.vy * dt;
+    f.vy *= 0.95;
+    f.life -= dt;
+    if (f.life <= 0) floaters.splice(i, 1);
+  }
+}
+
+/* ============================================================================
+   9. RENDER
+   ============================================================================ */
+function render() {
+  ctx.save();
+  ctx.translate(camera.shakeX, camera.shakeY);
+
+  if (state === STATE.GAMEOVER)    { renderGameOver(); ctx.restore(); return; }
+  if (state === STATE.WIN)         { renderWin(); ctx.restore(); return; }
+  if (state === STATE.RESTART)     { renderRestart(); ctx.restore(); return; }
+  if (state === STATE.WIN_FROZEN)  { renderWinFrozen(); ctx.restore(); return; }
+
+  drawBackground();
+  drawMidGround();
+  drawGround();
+
+  // entities (draw pickups behind, then enemies, then player, then bullets, then particles)
+  drawPickups();
+  drawEnemies();
+  drawPlayer();
+  drawBullets();
+  drawParticles();
+  drawFloaters();
+
+  drawHUD();
+
+  if (state === STATE.INTRO)      renderIntroOverlay();
+  if (state === STATE.COUNTDOWN)  renderCountdownOverlay();
+
+  ctx.restore();
+
+  // vignette scanlines
+  ctx.save();
+  ctx.globalAlpha = 0.12;
+  for (let y = 0; y < GH; y += 2) {
+    ctx.fillStyle = '#000'; ctx.fillRect(0, y, GW, 1);
+  }
+  ctx.restore();
+}
+
+function drawPickups() {
+  for (const p of pickups) {
+    const sx = p.x - camera.x, sy = p.y;
+    const blink = Math.floor(now() * 8) % 2 === 0;
+    if (p.type === 'coin') {
+      px(sx - 2, sy - 3, 4, 4, blink ? '#ffef4a' : '#ffc040');
+      px(sx - 1, sy - 2, 2, 2, '#ffffff');
+    } else {
+      // medal
+      px(sx - 3, sy - 4, 6, 5, '#ffca2c');
+      px(sx - 2, sy - 3, 4, 3, '#c0801a');
+      px(sx - 1, sy - 8, 2, 4, '#c01818');
+    }
+  }
+}
+function drawEnemies() { for (const e of enemies) drawEnemy(e); }
+function drawBullets() {
+  for (const b of bullets) {
+    const sx = b.x - camera.x;
+    px(sx - 4, b.y - 1, 8, 2, '#ffef4a');
+    px(sx - 2, b.y, 4, 1, '#ffffff');
+  }
+  for (const b of eBullets) {
+    const sx = b.x - camera.x;
+    px(sx - 3, b.y - 1, 6, 2, '#ff6020');
+    px(sx - 1, b.y, 2, 1, '#ffc040');
+  }
+}
+function drawParticles() {
+  for (const p of particles) {
+    const alpha = p.life / p.maxLife;
+    ctx.globalAlpha = clamp(alpha, 0.1, 1);
+    px(p.x - camera.x, p.y, p.size, p.size, p.color);
+  }
+  ctx.globalAlpha = 1;
+}
+function drawFloaters() {
+  for (const f of floaters) {
+    const a = clamp(f.life / f.maxLife, 0, 1);
+    ctx.globalAlpha = a;
+    const sx = f.x - camera.x;
+    ctx.fillStyle = f.color;
+    ctx.font = f.big ? '10px "Press Start 2P", monospace' : '6px "Press Start 2P", monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(f.text, sx, f.y);
+    // drop shadow
+    ctx.fillStyle = '#000'; ctx.globalAlpha = a * 0.5;
+    ctx.fillText(f.text, sx + 1, f.y + 1);
+  }
+  ctx.globalAlpha = 1; ctx.textAlign = 'left';
+}
+
+/* ---- HUD ---- */
+function drawHUD() {
+  // top bar
+  ctx.fillStyle = 'rgba(0,0,0,0.55)';
+  ctx.fillRect(0, 0, GW, 18);
+
+  // health
+  ctx.font = '6px "Press Start 2P", monospace';
+  ctx.fillStyle = '#fff';
+  ctx.fillText('HP', 4, 11);
+  px(18, 4, 80, 10, '#400');
+  const hpRatio = clamp(player.hp / player.maxHp, 0, 1);
+  const hpColor = hpRatio > 0.5 ? '#40c040' : hpRatio > 0.25 ? '#ffc040' : '#ff3838';
+  px(18, 4, 80 * hpRatio, 10, hpColor);
+  px(18, 4, 80, 1, '#fff8');  // highlight
+
+  // score center
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#ffca2c';
+  ctx.fillText('SCORE ' + String(player.score).padStart(6, '0'), GW/2, 11);
+  // kills
+  ctx.fillStyle = '#fff';
+  ctx.font = '5px "Press Start 2P", monospace';
+  ctx.fillText('KILLS ' + player.kills, GW/2, 17);
+
+  // ammo right
+  ctx.textAlign = 'right';
+  let ammoColor;
+  if (player.reloading)         ammoColor = '#ff3838';
+  else if (player.ammo === 0)   ammoColor = '#ff3838';
+  else if (player.ammo < 15)    ammoColor = '#ff8020';
+  else if (player.ammo < 30)    ammoColor = '#ffca2c';
+  else                          ammoColor = '#ffffff';
+  ctx.font = '8px "Press Start 2P", monospace';
+  ctx.fillStyle = ammoColor;
+  let text = String(player.ammo).padStart(2, '0') + '/' + player.maxAmmo;
+  // shake when zero
+  let sx = GW - 4, sy = 12;
+  if (player.ammo === 0 && !player.reloading) {
+    sx += rand(-2, 2); sy += rand(-2, 2);
+  }
+  ctx.fillText(text, sx, sy);
+  if (player.reloading) {
+    ctx.font = '5px "Press Start 2P", monospace';
+    ctx.fillStyle = '#ffca2c';
+    ctx.fillText('RELOADING ' + '.'.repeat(1 + Math.floor(now()*4)%3), GW - 4, 18);
+  }
+
+  // distance / progress
+  ctx.textAlign = 'left';
+  ctx.font = '5px "Press Start 2P", monospace';
+  ctx.fillStyle = '#8f8';
+  const prog = Math.min(100, Math.floor((camera.x / LEVEL_LENGTH) * 100));
+  ctx.fillText(`MISSION ${prog}%`, 4, 25);
+  px(4, 27, 80, 2, '#222');
+  px(4, 27, 80 * (prog / 100), 2, '#8f8');
+
+  // INSERT COINS ghosted at bottom
+  ctx.textAlign = 'center';
+  ctx.font = '8px "Press Start 2P", monospace';
+  ctx.globalAlpha = 0.35 + 0.25 * Math.sin(now() * 3);
+  ctx.fillStyle = '#ffca2c';
+  ctx.fillText('>> INSERT COINS <<', GW/2, GH - 6);
+  ctx.globalAlpha = 1;
+
+  // streak indicator
+  const t = now();
+  const recent = player.recentKills.filter(k => t - k < 2.2).length;
+  if (recent >= 2) {
+    ctx.fillStyle = '#ff3838';
+    ctx.font = '6px "Press Start 2P", monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText(`COMBO x${recent}`, GW - 4, 25);
+  }
+  ctx.textAlign = 'left';
+}
+
+/* ---- intro overlay ---- */
+function renderIntroOverlay() {
+  // fancy sky (train zone drawing already applied behind)
+  // big flashing text
+  ctx.textAlign = 'center';
+  ctx.font = '18px "Press Start 2P", monospace';
+  const blink = Math.floor(now() * 3) % 2 === 0;
+  if (blink) {
+    ctx.fillStyle = '#ff3838';
+    ctx.fillText('FREE CREDITS: HACK!', GW/2 + 2, 40);
+    ctx.fillStyle = '#ffca2c';
+    ctx.fillText('FREE CREDITS: HACK!', GW/2, 38);
+  }
+  // sequence prompt
+  ctx.font = '8px "Press Start 2P", monospace';
+  ctx.fillStyle = '#fff';
+  const seqMsg = [
+    '1/3  PRESS  ←  or  A',
+    '2/3  PRESS  →  or  D',
+    '3/3  PRESS  SPACE  TO  DEPLOY',
+    ''
+  ][introSeqStep];
+  if (seqMsg) {
+    const y = GH / 2 + 20;
+    ctx.fillStyle = '#000'; ctx.fillRect(GW/2 - 140, y - 10, 280, 18);
+    ctx.fillStyle = '#ffca2c';
+    ctx.fillText(seqMsg, GW/2, y + 3);
+  }
+  // title
+  ctx.font = '14px "Press Start 2P", monospace';
+  ctx.fillStyle = '#fff';
+  ctx.fillText('METAL SLOB xIA', GW/2 + 1, 76);
+  ctx.fillStyle = '#c01818';
+  ctx.fillText('METAL SLOB xIA', GW/2, 75);
+  // INSERT COINS bottom
+  const b2 = Math.floor(now() * 2) % 2 === 0;
+  if (b2) {
+    ctx.font = '10px "Press Start 2P", monospace';
+    ctx.fillStyle = '#ffca2c';
+    ctx.fillText('>> INSERT COINS <<', GW/2, GH - 20);
+  }
+  ctx.textAlign = 'left';
+}
+
+/* ---- countdown overlay ---- */
+function renderCountdownOverlay() {
+  const remain = Math.max(1, 5 - Math.floor(stateTime));
+  const frac = 1 - (stateTime - Math.floor(stateTime));  // 1 -> 0 within second
+  ctx.save();
+  ctx.textAlign = 'center';
+  if (stateTime < 5) {
+    const scale = 0.6 + frac * 1.2;
+    ctx.translate(GW/2, GH/2);
+    ctx.scale(scale, scale);
+    ctx.font = '48px "Press Start 2P", monospace';
+    ctx.fillStyle = '#000';
+    ctx.fillText(String(remain), 3, 3);
+    ctx.fillStyle = '#ff3838';
+    ctx.fillText(String(remain), 0, 0);
+  } else {
+    ctx.translate(GW/2, GH/2);
+    ctx.font = '28px "Press Start 2P", monospace';
+    ctx.fillStyle = '#ffca2c';
+    ctx.fillText('DEPLOY!', 0, 0);
+  }
+  ctx.restore();
+  ctx.textAlign = 'left';
+}
+
+/* ---- GAME OVER ---- */
+let gameOverFlipped = false;
+function handleTerminalInput() {
+  if (state === STATE.GAMEOVER) {
+    if (anyKeyPresses >= 6 && !gameOverFlipped) {
+      gameOverFlipped = true;
+      SFX.siren(3.8);
+      stateTime = 0;
+    } else if (gameOverFlipped && anyKeyPresses >= 8) {
+      // second key press after siren: restart
+      state = STATE.RESTART;
+    }
+  } else if (state === STATE.WIN) {
+    if (anyKeyPresses >= 6 && !gameOverFlipped) {
+      gameOverFlipped = true;
+      SFX.siren(3.8);
+      stateTime = 0;
+    }
+    // win is permanent — no restart branch
+  } else if (state === STATE.RESTART) {
+    // any key restarts
+    restartGame();
+  }
+}
+function renderGameOver() {
+  if (!gameOverFlipped) {
+    // pure black
+    ctx.fillStyle = '#000'; ctx.fillRect(0, 0, GW, GH);
+    return;
+  }
+  // red screen of shame + LOSER
+  ctx.fillStyle = '#c01818'; ctx.fillRect(0, 0, GW, GH);
+  ctx.save();
+  ctx.translate(GW/2 + rand(-2,2), GH/2 + rand(-2,2));
+  ctx.textAlign = 'center';
+  ctx.font = '64px "Press Start 2P", monospace';
+  ctx.fillStyle = '#000';
+  ctx.fillText('LOSER', 4, 4);
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText('LOSER', 0, 0);
+  ctx.restore();
+  if (stateTime > 3.5) {
+    ctx.textAlign = 'center';
+    ctx.font = '8px "Press Start 2P", monospace';
+    ctx.fillStyle = '#000'; ctx.fillRect(0, GH - 26, GW, 22);
+    ctx.fillStyle = '#ffca2c';
+    ctx.fillText('If you dare, metal jacket...', GW/2, GH - 15);
+    ctx.fillText('press any key to restart', GW/2, GH - 6);
+    state = STATE.RESTART;
+  }
+  ctx.textAlign = 'left';
+}
+function renderWin() {
+  if (!gameOverFlipped) {
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, GW, GH);
+    return;
+  }
+  ctx.fillStyle = '#2a6aff'; ctx.fillRect(0, 0, GW, GH);
+  ctx.save();
+  ctx.translate(GW/2 + rand(-2,2), GH/2 + rand(-2,2));
+  ctx.textAlign = 'center';
+  ctx.font = '64px "Press Start 2P", monospace';
+  ctx.fillStyle = '#000';
+  ctx.fillText('LOSER', 4, 4);
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText('LOSER', 0, 0);
+  ctx.restore();
+  if (stateTime > 3.5) {
+    ctx.textAlign = 'center';
+    ctx.font = '7px "Press Start 2P", monospace';
+    ctx.fillStyle = '#000'; ctx.fillRect(0, GH - 44, GW, 40);
+    ctx.fillStyle = '#ffca2c';
+    ctx.fillText('The Double FREE CREDIT Slob function', GW/2, GH - 32);
+    ctx.fillText('was never implemented.', GW/2, GH - 22);
+    ctx.fillText('Reload browser to try again.', GW/2, GH - 12);
+    state = STATE.WIN_FROZEN;
+  }
+  ctx.textAlign = 'left';
+}
+function renderRestart() {
+  // persistent red screen with prompt
+  ctx.fillStyle = '#c01818'; ctx.fillRect(0, 0, GW, GH);
+  ctx.textAlign = 'center';
+  ctx.font = '36px "Press Start 2P", monospace';
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText('LOSER', GW/2, GH/2 - 20);
+  ctx.font = '8px "Press Start 2P", monospace';
+  ctx.fillStyle = '#ffca2c';
+  const b = Math.floor(now()*2) % 2 === 0;
+  if (b) ctx.fillText('press any key to restart', GW/2, GH - 20);
+  ctx.textAlign = 'left';
+}
+function renderWinFrozen() {
+  ctx.fillStyle = '#2a6aff'; ctx.fillRect(0, 0, GW, GH);
+  ctx.textAlign = 'center';
+  ctx.font = '36px "Press Start 2P", monospace';
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText('LOSER', GW/2, GH/2 - 20);
+  ctx.font = '7px "Press Start 2P", monospace';
+  ctx.fillStyle = '#ffca2c';
+  ctx.fillText('The Double FREE CREDIT Slob function', GW/2, GH/2 + 10);
+  ctx.fillText('was never implemented.', GW/2, GH/2 + 22);
+  ctx.fillText('Reload browser to try again.', GW/2, GH/2 + 34);
+  ctx.textAlign = 'left';
+}
+
+function restartGame() {
+  state = STATE.INTRO; stateTime = 0;
+  introSeqStep = 0; gameOverFlipped = false; anyKeyPresses = 0; lastCountSec = 6;
+  enemies.length = 0; bullets.length = 0; eBullets.length = 0;
+  particles.length = 0; pickups.length = 0; floaters.length = 0;
+  camera.x = 0; camera.shakeT = 0; camera.shakeMag = 0;
+  resetPlayer();
+  SFX.startMusic();
+}
+
+/* ============================================================================
+   10. BOOT
+   ============================================================================ */
+resetPlayer();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
