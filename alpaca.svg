@@ -16,17 +16,21 @@
       <feDropShadow dx="0" dy="3" stdDeviation="2" flood-color="#5d4936" flood-opacity="0.25"/>
     </filter>
     <style>
+      :root{--pedal-duration:.7s;--bike-blue:#173c62}
       .outline{stroke:#33251d;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
       .softOutline{stroke:#33251d;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-      .bike{fill:none;stroke:#173c62;stroke-width:4;stroke-linecap:round;stroke-linejoin:round}
+      .bike{fill:none;stroke:var(--bike-blue);stroke-width:4;stroke-linecap:round;stroke-linejoin:round}
       .bikeThin{fill:none;stroke:#4d6d8b;stroke-width:1.4;stroke-linecap:round}
       .fur{fill:url(#fleece);stroke:#33251d;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
       .cream{fill:#fff4dc}.tan{fill:#d4a875}.dark{fill:#33251d}.hoof{fill:#4a3024}
       .motion{fill:none;stroke:#63a9d6;stroke-width:3;stroke-linecap:round;opacity:.75}
       .prompt{font-family:Verdana,Arial,sans-serif;font-size:8.5px;fill:#243748}
+      .bikeBlueFill{fill:var(--bike-blue)}
+      .crankLine{stroke:var(--bike-blue);stroke-width:4;stroke-linecap:round}
+      .crankCircle{fill:none;stroke:var(--bike-blue);stroke-width:3}
       @media (prefers-reduced-motion:no-preference){
-        .wheel{transform-box:fill-box;transform-origin:center;animation:spin .7s linear infinite}
-        .crank{transform-box:fill-box;transform-origin:200px 212px;animation:spin .7s linear infinite}
+        .wheel{transform-box:fill-box;transform-origin:center;animation:spin var(--pedal-duration) linear infinite}
+        .crank{transform-box:fill-box;transform-origin:200px 212px;animation:spin var(--pedal-duration) linear infinite}
         .bob{animation:bob .7s ease-in-out infinite alternate}
         .scarf{animation:flap .45s ease-in-out infinite alternate}
       }
@@ -53,13 +57,16 @@
       <circle cx="292" cy="222" r="42" class="bikeThin"/>
       <path d="M292 172v100M242 222h100M257 187l70 70M327 187l-70 70" class="bikeThin"/>
     </g>
-    <circle cx="105" cy="222" r="5" fill="#173c62"/>
-    <circle cx="292" cy="222" r="5" fill="#173c62"/>
+    <circle cx="105" cy="222" r="5" class="bikeBlueFill"/>
+    <circle cx="292" cy="222" r="5" class="bikeBlueFill"/>
     <path d="M105 222 L162 222 L200 178 L244 222 L292 222 M162 222 L139 181 L200 178 L244 222 M200 178 L207 153" class="bike"/>
     <path d="M207 153h34" class="bike"/>
     <path d="M292 222 L317 169 L342 166 M342 166 l-12 -12" class="bike"/>
     <path d="M105 222 L77 178 L58 179" class="bike"/>
-    <ellipse cx="211" cy="154" rx="18" ry="7" fill="#173c62" transform="rotate(-7 211 154)"/>
+    <g aria-label="bicycle saddle">
+      <title>Bicycle saddle</title>
+      <ellipse cx="211" cy="154" rx="18" ry="7" class="bikeBlueFill" transform="rotate(-7 211 154)"/>
+    </g>
   </g>
 
   <g class="bob">
@@ -101,10 +108,10 @@
   </g>
 
   <g class="crank">
-    <circle cx="200" cy="212" r="12" fill="none" stroke="#173c62" stroke-width="3"/>
-    <path d="M200 212 L177 229 M200 212 L222 195" stroke="#173c62" stroke-width="4" stroke-linecap="round"/>
-    <rect x="166" y="225" width="23" height="7" rx="3.5" fill="#173c62" transform="rotate(18 177 229)"/>
-    <rect x="211" y="191" width="23" height="7" rx="3.5" fill="#173c62" transform="rotate(-25 222 195)"/>
+    <circle cx="200" cy="212" r="12" class="crankCircle"/>
+    <path d="M200 212 L177 229 M200 212 L222 195" class="crankLine"/>
+    <rect x="166" y="225" width="23" height="7" rx="3.5" class="bikeBlueFill" transform="rotate(18 177 229)"/>
+    <rect x="211" y="191" width="23" height="7" rx="3.5" class="bikeBlueFill" transform="rotate(-25 222 195)"/>
   </g>
 
   <path d="M19 258 C42 252 56 252 84 258 M276 260 C305 252 331 252 370 260" fill="none" stroke="#4d8f50" stroke-width="4" stroke-linecap="round" opacity=".55"/>
